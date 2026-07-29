@@ -66,14 +66,19 @@ fichier analysé et imposé) et `out_….pdf` (le résultat).
 
 ## Déploiement
 
-L'application est prévue pour tourner **en local**. Les fichiers `vercel.json`
-et `api/index.py` permettent malgré tout un déploiement Vercel, avec deux
-limites imposées par l'hébergement *serverless* :
+L'application est prévue pour tourner **en local**. `vercel.json` permet malgré
+tout un déploiement Vercel : `app.py` y sert directement de fonction
+*serverless*, sans aucun réglage à faire dans le tableau de bord. Deux limites
+sont inhérentes à cet hébergement :
 
 * **envoi limité à 4,5 Mo par requête** — les PDF plus lourds sont refusés ;
-* **disque non persistant** — la variable `SUIVI_DONNEES` redirige la base et
-  les archives vers `/tmp`, dont le contenu disparaît à chaque démarrage à
-  froid. Les rapports du Suivi des lives n'y survivent donc pas.
+* **disque non persistant** — le dossier applicatif est en lecture seule, donc
+  la base et les archives basculent automatiquement dans `/tmp` (détection via
+  la variable `VERCEL`). Leur contenu disparaît à chaque démarrage à froid :
+  les rapports du Suivi des lives n'y survivent pas.
+
+`SUIVI_DONNEES` force au besoin l'emplacement des données, par exemple vers un
+volume monté.
 
 Pour un usage réel en ligne, préférer un hébergeur à disque persistant
 (Render, Railway, Fly.io) : `pip install -r requirements.txt` puis

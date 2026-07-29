@@ -1,0 +1,10 @@
+# Allege la fonction serverless : rien de tout cela n'est utile a l'execution.
+donnees-suivi/
+__pycache__/
+*.pyc
+essai-*.pdf
+essai-*.png
+start.bat
+README.md
+SUIVI-DES-LIVES.md
+.gitignore

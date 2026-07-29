@@ -7,6 +7,7 @@ Ne contient aucune regle : tout est delegue a service.py.
 import csv
 import io
 import os
+import tempfile
 import urllib.parse
 
 from flask import (Blueprint, jsonify, render_template, request, send_file,
@@ -14,11 +15,26 @@ from flask import (Blueprint, jsonify, render_template, request, send_file,
 
 from . import archive, db, schema, service
 
-# En local les donnees vivent a cote du code. Sur un hebergeur dont le disque
-# applicatif est en lecture seule (Vercel), SUIVI_DONNEES pointe vers le seul
-# dossier inscriptible, /tmp -- les donnees y sont alors ephemeres.
-DOSSIER_DONNEES = os.environ.get("SUIVI_DONNEES") or os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "donnees-suivi")
+
+def _dossier_donnees():
+    """Ou ranger la base et les archives.
+
+    En local : a cote du code, pour que les rapports restent d'une session a
+    l'autre. Sur un hebergeur serverless le disque applicatif est en lecture
+    seule ; seul le dossier temporaire accepte l'ecriture, au prix de donnees
+    effacees a chaque demarrage a froid. `SUIVI_DONNEES` force le choix, par
+    exemple vers un volume monte.
+    """
+    impose = os.environ.get("SUIVI_DONNEES")
+    if impose:
+        return impose
+    if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+        return os.path.join(tempfile.gettempdir(), "donnees-suivi")
+    return os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), "donnees-suivi")
+
+
+DOSSIER_DONNEES = _dossier_donnees()
 CHEMIN_DB = os.path.join(DOSSIER_DONNEES, "suivi.db")
 DOSSIER_ARCHIVES = os.path.join(DOSSIER_DONNEES, "archives")
 

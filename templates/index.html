@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2-up Studio &middot; PDF paysage vers portrait</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📄</text></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">2up</div>
+    <div>
+      <h1>2-up Studio</h1>
+      <p>Deux pages paysage sur chaque feuille portrait &middot; nettoyage des pages vides</p>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <a class="ghost" href="/operations" style="text-decoration:none">&#127909; Suivi des lives</a>
+    <span class="badge-host">localhost:{{ port }}</span>
+    <button class="icon-btn" id="themeBtn" title="Th&egrave;me clair / sombre">&#9789;</button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- ================= colonne de gauche ================= -->
+  <aside class="panel">
+
+    <section class="card">
+      <h2><span class="step">1</span> PDF paysage <em>un ou plusieurs</em></h2>
+      <div class="drop" id="dropSource" tabindex="0" role="button"
+           aria-label="Choisir le ou les PDF paysage a convertir">
+        <div class="drop-icon">&#8681;</div>
+        <p class="drop-title">Glissez vos PDF ici</p>
+        <p class="drop-sub">un ou plusieurs fichiers &middot; assembl&eacute;s dans l'ordre<br>
+           max {{ max_mb }} Mo au total</p>
+        <input type="file" id="fileSource" accept="application/pdf,.pdf" multiple
+               aria-label="PDF paysage" hidden>
+      </div>
+      <div class="hidden" id="infoSource">
+        <ul class="filelist" id="sourceList"></ul>
+        <div class="filelist-foot">
+          <span id="srcMeta">&nbsp;</span>
+          <div class="filelist-actions">
+            <button class="ghost small" id="btnAddMore">+ Ajouter des PDF</button>
+            <button class="icon-btn danger" data-remove="source" title="Tout retirer">&times;</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span class="step">2</span> Nouvelle premi&egrave;re page <em>optionnel</em></h2>
+      <div class="drop small" id="dropFirst" tabindex="0" role="button"
+           aria-label="Choisir la nouvelle premiere page">
+        <div class="drop-icon">&#128441;</div>
+        <p class="drop-title">PDF ou image</p>
+        <p class="drop-sub">remplace la page&nbsp;1 d'origine</p>
+        <input type="file" id="fileFirst" accept="application/pdf,.pdf,image/*"
+               aria-label="Nouvelle premiere page" hidden>
+      </div>
+      <div class="filecard hidden" id="infoFirst">
+        <img class="filecard-thumb" id="firstThumb" alt="">
+        <div class="filecard-body">
+          <strong id="firstName">&nbsp;</strong>
+          <span id="firstMeta">&nbsp;</span>
+        </div>
+        <button class="icon-btn danger" data-remove="first" title="Retirer">&times;</button>
+      </div>
+
+      <div class="field hidden" id="modeField">
+        <span class="field-title">Placement</span>
+        <div class="segmented">
+          <label><input type="radio" name="mode" value="cover" checked><span>Couverture pleine page</span></label>
+          <label><input type="radio" name="mode" value="inline"><span>Int&eacute;gr&eacute;e au 2-up</span></label>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span class="step">3</span> Mise en page</h2>
+
+      <div class="field">
+        <label for="pageSize">Format de la feuille</label>
+        <select id="pageSize">
+          <option value="a4" selected>A4 portrait (210 &times; 297 mm)</option>
+          <option value="letter">US Letter portrait</option>
+          <option value="legal">US Legal portrait</option>
+          <option value="a3">A3 portrait</option>
+          <option value="a5">A5 portrait</option>
+          <option value="auto">Auto &mdash; ajust&eacute; a la source (zero marge blanche)</option>
+          <option value="custom">Personnalis&eacute;&hellip;</option>
+        </select>
+      </div>
+
+      <div class="field two hidden" id="customField">
+        <div>
+          <label for="customW">Largeur (mm)</label>
+          <input type="number" id="customW" value="210" min="30" max="2000">
+        </div>
+        <div>
+          <label for="customH">Hauteur (mm)</label>
+          <input type="number" id="customH" value="297" min="30" max="2000">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="outerMargin">Marge ext&eacute;rieure <b id="outerVal">6 pt</b></label>
+        <input type="range" id="outerMargin" min="0" max="40" step="1" value="6">
+      </div>
+
+      <div class="field">
+        <label for="middleGap">Espace entre les deux pages <b id="gapVal">6 pt</b></label>
+        <input type="range" id="middleGap" min="0" max="40" step="1" value="6">
+      </div>
+
+      <div class="field hidden" id="coverField">
+        <label for="coverMargin">Marge de la couverture <b id="coverVal">0 pt</b></label>
+        <input type="range" id="coverMargin" min="0" max="40" step="1" value="0">
+      </div>
+    </section>
+
+    <button class="primary" id="btnGenerate" disabled>
+      <span class="btn-label">G&eacute;n&eacute;rer le PDF</span>
+      <span class="spinner hidden"></span>
+    </button>
+    <p class="hint" id="genHint">Chargez d'abord un PDF paysage.</p>
+  </aside>
+
+  <!-- ================= zone de travail ================= -->
+  <section class="workspace">
+
+    <div class="placeholder" id="emptyState">
+      <div class="empty-art">
+        <div class="sheet"><span></span><span></span></div>
+      </div>
+      <h3>Aucun document charg&eacute;</h3>
+      <p>D&eacute;posez un ou plusieurs PDF paysage &agrave; gauche : ils seront assembl&eacute;s bout &agrave; bout.<br>
+         Les pages vides (fond, bandeaux, filigrane seuls) seront rep&eacute;r&eacute;es automatiquement.</p>
+    </div>
+
+    <div class="loading hidden" id="loadingState">
+      <div class="spinner big"></div>
+      <p id="loadingText">Analyse des pages&hellip;</p>
+    </div>
+
+    <div class="pages-view hidden" id="pagesView">
+      <div class="toolbar">
+        <div class="counts">
+          <span class="pill" id="pillTotal">0 pages</span>
+          <span class="pill danger" id="pillRemoved">0 supprim&eacute;es</span>
+          <span class="pill ok" id="pillKept">0 gard&eacute;es</span>
+          <span class="pill accent" id="pillSheets">0 feuilles</span>
+        </div>
+        <div class="tools">
+          <div class="slider-inline">
+            <label for="sensitivity">Sensibilit&eacute; <b id="sensVal">0,15 %</b></label>
+            <input type="range" id="sensitivity" min="0" max="100" value="27">
+          </div>
+          <button class="ghost" id="btnAuto">D&eacute;tection auto</button>
+          <button class="ghost" id="btnKeepAll">Tout garder</button>
+        </div>
+      </div>
+      <p class="tip">Cliquez sur une vignette pour la garder ou la supprimer. Les pages barr&eacute;es ne seront pas dans le PDF final.</p>
+      <div class="grid" id="pagesGrid"></div>
+    </div>
+
+    <div class="result hidden" id="resultView">
+      <div class="result-head">
+        <div class="result-check">&#10003;</div>
+        <div>
+          <h3>PDF pr&ecirc;t</h3>
+          <p id="resultLine">&nbsp;</p>
+        </div>
+      </div>
+      <div class="stats" id="resultStats"></div>
+      <div class="result-actions">
+        <a class="primary" id="btnDownload" href="#" download>T&eacute;l&eacute;charger le PDF</a>
+        <button class="ghost" id="btnBack">Modifier les r&eacute;glages</button>
+        <button class="ghost" id="btnReset">Nouveau document</button>
+      </div>
+      <h4 class="preview-title">Aper&ccedil;u du r&eacute;sultat</h4>
+      <div class="grid result-grid" id="resultGrid"></div>
+    </div>
+
+  </section>
+</main>
+
+<div class="toast-wrap" id="toasts"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Donnees reelles du Suivi des lives (base SQLite + rapports archives).
+# Recreees automatiquement au premier demarrage avec le jeu de demonstration.
+donnees-suivi/
+
+# Deploiement
+.vercel/
+
+# Systeme / editeurs
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/

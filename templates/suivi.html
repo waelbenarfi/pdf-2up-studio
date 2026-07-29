@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suivi des lives</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/suivi.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎥</text></svg>">
+</head>
+<body class="suivi">
+
+<div class="s-app">
+  <aside class="s-barre">
+    <a class="s-logo" href="#/tableau">
+      <div class="s-logo-mark">🎥</div>
+      <div>
+        <strong>Suivi des lives</strong>
+        <span>Rapports &middot; incidents &middot; support</span>
+      </div>
+    </a>
+    <nav class="s-nav" id="nav"></nav>
+    <div class="s-barre-pied">
+      <a class="s-retour" href="/">&larr; Outil PDF 2-up</a>
+    </div>
+  </aside>
+
+  <div class="s-main">
+    <header class="s-haut">
+      <div id="titrePage">
+        <h1>Suivi des lives</h1>
+        <p>Chargement&hellip;</p>
+      </div>
+      <div class="s-haut-actions" id="hautActions"></div>
+    </header>
+    <main class="s-contenu" id="vue">
+      <div class="s-chargement"><span class="s-tourne"></span></div>
+    </main>
+  </div>
+</div>
+
+<div class="s-toasts" id="toasts"></div>
+<div id="calques"></div>
+
+<script>window.SUIVI = {{ constantes | tojson }};</script>
+<script type="module" src="/static/suivi/app.js"></script>
+</body>
+</html>

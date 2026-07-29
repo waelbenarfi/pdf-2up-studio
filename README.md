@@ -66,23 +66,52 @@ fichier analysé et imposé) et `out_….pdf` (le résultat).
 
 ## Déploiement
 
-L'application est prévue pour tourner **en local**. `vercel.json` permet malgré
-tout un déploiement Vercel : `app.py` y sert directement de fonction
-*serverless*, sans aucun réglage à faire dans le tableau de bord. Deux limites
-sont inhérentes à cet hébergement :
+`vercel.json` déploie l'application sur Vercel : `app.py` y sert directement de
+fonction *serverless*.
 
-* **envoi limité à 4,5 Mo par requête** — les PDF plus lourds sont refusés ;
-* **disque non persistant** — le dossier applicatif est en lecture seule, donc
-  la base et les archives basculent automatiquement dans `/tmp` (détection via
-  la variable `VERCEL`). Leur contenu disparaît à chaque démarrage à froid :
-  les rapports du Suivi des lives n'y survivent pas.
+### Base de données
 
-`SUIVI_DONNEES` force au besoin l'emplacement des données, par exemple vers un
+Le Suivi des lives fonctionne sur **deux moteurs**, choisis à l'exécution :
+
+| `DATABASE_URL` | moteur | usage |
+|---|---|---|
+| absente | SQLite, fichier local | poste de travail |
+| définie | PostgreSQL | hébergement, où le disque ne survit pas |
+
+Le reste du code écrit ses requêtes en style SQLite (placeholders `?`) et ignore
+lequel des deux répond : `suivi/db.py` traduit. Rien d'autre à changer pour
+passer de l'un à l'autre.
+
+En ligne, la variable se règle dans **Vercel → Settings → Environment Variables**
+(nom `DATABASE_URL`, les trois environnements). Elle n'a rien à faire dans le
+dépôt : c'est un mot de passe.
+
+Pour transférer une base locale existante vers PostgreSQL :
+
+```bat
+set DATABASE_URL=postgresql://...
+python outils\migrer_vers_postgres.py
+```
+
+Les identifiants et les liens entre tables sont conservés, et les séquences
+recalées. `--remplacer` écrase une cible déjà peuplée.
+
+### Limites de l'hébergement serverless
+
+* **envoi limité à 4,5 Mo par requête** — les PDF plus lourds sont refusés, donc
+  l'outil 2-up en ligne ne convient qu'à de petits documents ;
+* **disque non persistant** — le dossier applicatif est en lecture seule. Sans
+  `DATABASE_URL`, la base bascule dans `/tmp` (détection via la variable
+  `VERCEL`) et disparaît à chaque démarrage à froid. Les **pièces jointes** des
+  rapports et des tickets, elles, restent des fichiers sur disque : elles ne
+  survivent pas non plus, quel que soit le moteur de base.
+
+`SUIVI_DONNEES` force au besoin l'emplacement des fichiers, par exemple vers un
 volume monté.
 
-Pour un usage réel en ligne, préférer un hébergeur à disque persistant
+Pour lever ces deux limites, préférer un hébergeur à disque persistant
 (Render, Railway, Fly.io) : `pip install -r requirements.txt` puis
-`gunicorn app:app`, avec `SUIVI_DONNEES` pointé sur un volume monté.
+`gunicorn app:app`.
 
 ## Réglages avancés
 

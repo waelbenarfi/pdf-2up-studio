@@ -6,6 +6,8 @@ quelles a l'interface (window.SUIVI), donc le serveur et l'ecran ne peuvent
 pas diverger.
 """
 
+import re
+
 VERSION = 1
 
 MOIS = [
@@ -95,6 +97,12 @@ TAILLE_MAX_MO = 50
 # d'abord, pour ne pas heurter les cles etrangeres).
 TABLES_DONNEES = ["messages", "fichiers", "tickets", "rapports", "lives",
                   "personnes", "journal"]
+
+# Tables dont la cle primaire est un entier auto-incremente. `parametres` est
+# la seule a en etre depourvue : sa cle est un texte. La distinction sert a
+# savoir ou ajouter un RETURNING id sous PostgreSQL.
+TABLES_ID = ["personnes", "lives", "rapports", "fichiers", "tickets",
+             "messages", "journal"]
 
 
 DDL = """
@@ -209,6 +217,19 @@ CREATE TABLE IF NOT EXISTS journal (
 );
 CREATE INDEX IF NOT EXISTS i_journal_quand ON journal(quand);
 """
+
+
+def ddl_postgres():
+    """Le meme schema, dit en PostgreSQL.
+
+    Deriver la variante plutot que la recopier evite que les deux versions
+    divergent : il n'y a qu'un seul endroit ou ajouter une colonne. Seules
+    deux choses separent les dialectes ici, les PRAGMA (propres a SQLite) et
+    la facon de declarer une cle primaire auto-incrementee.
+    """
+    texte = re.sub(r"^\s*PRAGMA[^;]*;\s*$", "", DDL, flags=re.MULTILINE)
+    return texte.replace("INTEGER PRIMARY KEY AUTOINCREMENT",
+                         "SERIAL PRIMARY KEY")
 
 
 def par_cle(liste):

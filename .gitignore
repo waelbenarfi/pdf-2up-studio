@@ -13,6 +13,11 @@ donnees-suivi/
 # Deploiement
 .vercel/
 
+# Secrets : DATABASE_URL et compagnie ne doivent jamais etre commites.
+.env
+.env.*
+!.env.example
+
 # Systeme / editeurs
 .DS_Store
 Thumbs.db

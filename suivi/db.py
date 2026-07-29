@@ -1,11 +1,22 @@
 # -*- coding: utf-8 -*-
-"""Acces a la base SQLite du Suivi des lives.
+"""Acces a la base du Suivi des lives.
+
+Deux moteurs derriere une seule interface :
+
+* **SQLite** en local, un fichier a cote du code, rien a installer ;
+* **PostgreSQL** des que `DATABASE_URL` est definie -- indispensable sur un
+  hebergement serverless, ou le disque est efface a chaque demarrage a froid.
+
+Tout le reste du module `suivi` ecrit ses requetes en style SQLite, avec des
+placeholders `?`, et ignore lequel des deux moteurs repond. La traduction est
+faite ici et nulle part ailleurs.
 
 Une connexion par requete HTTP, refermee automatiquement a la fin.
 """
 
 import datetime
 import os
+import re
 import sqlite3
 
 from flask import g
@@ -14,18 +25,135 @@ from . import schema
 
 _CHEMIN = None
 
+URL = (os.environ.get("DATABASE_URL") or "").strip()
+POSTGRES = URL.startswith(("postgres://", "postgresql://"))
+
 
 def configurer(chemin):
     global _CHEMIN
     _CHEMIN = chemin
 
 
+def moteur():
+    """Nom du moteur actif, pour l'affichage et les diagnostics."""
+    return "postgresql" if POSTGRES else "sqlite"
+
+
+# ---------------------------------------------------------------- traduction
+_DEBUT_INSERT = re.compile(r"^\s*INSERT\s+INTO\s+([A-Za-z_][A-Za-z_0-9]*)",
+                           re.IGNORECASE)
+
+
+def _traduire(sql):
+    """Passe une requete du style SQLite au style psycopg.
+
+    Les `?` deviennent des `%s`, et les `%` litteraux sont doubles pour ne pas
+    etre pris pour des marqueurs. Les deux caracteres sont laisses intacts a
+    l'interieur d'une chaine SQL, ou ils n'ont rien d'un placeholder.
+    """
+    morceaux = []
+    dans_texte = False
+    for caractere in sql:
+        if caractere == "'":
+            dans_texte = not dans_texte
+            morceaux.append(caractere)
+        elif dans_texte:
+            morceaux.append(caractere)
+        elif caractere == "?":
+            morceaux.append("%s")
+        elif caractere == "%":
+            morceaux.append("%%")
+        else:
+            morceaux.append(caractere)
+    return "".join(morceaux)
+
+
+def _avec_returning(sql):
+    """Ajoute `RETURNING id` a un INSERT, seul moyen d'obtenir la cle sous PG.
+
+    Renvoie (requete, faut_il_lire_l_id). `parametres` est ecartee : sa cle
+    primaire est un texte, elle n'a pas de colonne `id`.
+    """
+    trouve = _DEBUT_INSERT.match(sql)
+    if not trouve or " RETURNING " in sql.upper():
+        return sql, False
+    if trouve.group(1).lower() not in schema.TABLES_ID:
+        return sql, False
+    return sql.rstrip().rstrip(";") + " RETURNING id", True
+
+
+# ---------------------------------------------------------------- connexions
+class _Curseur:
+    """Surface commune aux deux moteurs : ce que `execute()` rend.
+
+    Les lignes sortent en dictionnaires des deux cotes, et `lastrowid` existe
+    partout -- sous PostgreSQL il vient du RETURNING ajoute plus haut.
+    """
+
+    def __init__(self, curseur, lastrowid=None):
+        self._curseur = curseur
+        self.lastrowid = lastrowid
+        self.rowcount = curseur.rowcount
+
+    def fetchone(self):
+        ligne = self._curseur.fetchone()
+        return dict(ligne) if ligne is not None else None
+
+    def fetchall(self):
+        return [dict(ligne) for ligne in self._curseur.fetchall()]
+
+
+class _Curseur_sqlite(_Curseur):
+    def __init__(self, curseur):
+        _Curseur.__init__(self, curseur, curseur.lastrowid)
+
+
+class _Connexion:
+    """Connexion neutre : les appelants ne voient jamais le moteur."""
+
+    def __init__(self, brute, postgres):
+        self.brute = brute
+        self.postgres = postgres
+
+    def execute(self, sql, params=()):
+        params = tuple(params or ())
+        if not self.postgres:
+            return _Curseur_sqlite(self.brute.execute(sql, params))
+
+        sql, lire_id = _avec_returning(sql)
+        curseur = self.brute.cursor()
+        curseur.execute(_traduire(sql), params)
+        dernier = None
+        if lire_id:
+            ligne = curseur.fetchone()
+            dernier = ligne["id"] if ligne else None
+        return _Curseur(curseur, dernier)
+
+    def commit(self):
+        self.brute.commit()
+
+    def close(self):
+        self.brute.close()
+
+
+def _ouvrir():
+    """Nouvelle connexion au moteur actif."""
+    if POSTGRES:
+        import psycopg2
+        import psycopg2.extras
+        brute = psycopg2.connect(
+            URL, cursor_factory=psycopg2.extras.RealDictCursor)
+        return _Connexion(brute, True)
+
+    brute = sqlite3.connect(_CHEMIN)
+    brute.row_factory = sqlite3.Row
+    brute.execute("PRAGMA foreign_keys = ON")
+    return _Connexion(brute, False)
+
+
 def connexion():
     if "suivi_db" not in g:
-        cnx = sqlite3.connect(_CHEMIN)
-        cnx.row_factory = sqlite3.Row
-        cnx.execute("PRAGMA foreign_keys = ON")
-        g.suivi_db = cnx
+        g.suivi_db = _ouvrir()
     return g.suivi_db
 
 
@@ -37,19 +165,18 @@ def fermer(_=None):
 
 # ---------------------------------------------------------------- requetes
 def tous(sql, params=()):
-    return [dict(r) for r in connexion().execute(sql, params).fetchall()]
+    return connexion().execute(sql, params).fetchall()
 
 
 def un(sql, params=()):
-    ligne = connexion().execute(sql, params).fetchone()
-    return dict(ligne) if ligne else None
+    return connexion().execute(sql, params).fetchone()
 
 
 def executer(sql, params=()):
     cnx = connexion()
-    cur = cnx.execute(sql, params)
+    curseur = cnx.execute(sql, params)
     cnx.commit()
-    return cur
+    return curseur
 
 
 def inserer(table, valeurs):
@@ -83,15 +210,19 @@ def aujourdhui():
 
 # ---------------------------------------------------------------- demarrage
 def initialiser(chemin, avec_demo=True):
-    """Cree le fichier de base et les tables si besoin.
+    """Cree les tables si besoin, et n'ecrit le jeu de demonstration qu'une fois.
 
-    Le jeu de demonstration n'est ecrit qu'une seule fois, a la toute
-    premiere ouverture : une base volontairement videe le reste apres un
-    redemarrage.
+    Le drapeau `installe` marque la premiere ouverture : une base volontairement
+    videe le reste apres un redemarrage. Sous PostgreSQL, poser ce drapeau est
+    aussi ce qui departage deux instances qui demarreraient en meme temps --
+    celle qui perd le `ON CONFLICT` ne remplit pas la demonstration.
     """
     configurer(chemin)
-    os.makedirs(os.path.dirname(chemin), exist_ok=True)
+    if POSTGRES:
+        _initialiser_postgres(avec_demo)
+        return
 
+    os.makedirs(os.path.dirname(chemin), exist_ok=True)
     cnx = sqlite3.connect(chemin)
     cnx.row_factory = sqlite3.Row
     try:
@@ -107,7 +238,7 @@ def initialiser(chemin, avec_demo=True):
                 for table in schema.TABLES_DONNEES)
             if avec_demo and not occupee:
                 from . import demo
-                demo.remplir(cnx)
+                demo.remplir(_Connexion(cnx, False))
             cnx.execute("INSERT INTO parametres (cle, valeur)"
                         " VALUES ('installe', ?)", (maintenant(),))
             cnx.commit()
@@ -115,7 +246,56 @@ def initialiser(chemin, avec_demo=True):
         cnx.close()
 
 
+# Verrou arbitraire mais stable : deux instances qui demarrent en meme temps
+# doivent creer le schema l'une apres l'autre. Il est pris a l'echelle de la
+# transaction et non de la session, seule forme sure derriere le pooler
+# PgBouncer de Neon, ou une session peut changer de client entre deux ordres.
+_VERROU = 862026
+
+
+def _deja_installee(cnx):
+    """Vrai si une precedente instance a fini l'installation.
+
+    Evite de rejouer tout le schema a chaque demarrage a froid, ce qui, en
+    serverless, arrive souvent.
+    """
+    table = cnx.execute("SELECT to_regclass('public.parametres') AS t").fetchone()
+    if not table or not table["t"]:
+        return False
+    return cnx.execute("SELECT 1 AS present FROM parametres"
+                       " WHERE cle = 'installe'").fetchone() is not None
+
+
+def _initialiser_postgres(avec_demo):
+    cnx = _ouvrir()
+    try:
+        if _deja_installee(cnx):
+            return
+        cnx.execute("SELECT pg_advisory_xact_lock(%d)" % _VERROU)
+        cnx.brute.cursor().execute(schema.ddl_postgres())
+
+        # Une base deja peuplee mais sans le drapeau (import de donnees, par
+        # exemple) ne doit surtout pas recevoir le jeu de demonstration.
+        occupee = any(
+            cnx.execute("SELECT 1 FROM %s LIMIT 1" % table).fetchone()
+            for table in schema.TABLES_DONNEES)
+        pose = cnx.execute(
+            "INSERT INTO parametres (cle, valeur) VALUES ('installe', ?)"
+            " ON CONFLICT (cle) DO NOTHING", (maintenant(),))
+
+        if pose.rowcount == 1 and avec_demo and not occupee:
+            from . import demo
+            demo.remplir(cnx)
+        cnx.commit()          # libere aussi le verrou
+    finally:
+        cnx.close()
+
+
 def _effacer(cnx):
+    if cnx.postgres:
+        cnx.execute("TRUNCATE TABLE %s RESTART IDENTITY CASCADE"
+                    % ", ".join(schema.TABLES_DONNEES))
+        return
     cnx.execute("PRAGMA foreign_keys = OFF")
     for table in schema.TABLES_DONNEES:
         cnx.execute("DELETE FROM %s" % table)
@@ -124,7 +304,8 @@ def _effacer(cnx):
 
 def vider(chemin):
     """Repart de zero : plus aucune donnee, pas de jeu de demonstration."""
-    cnx = sqlite3.connect(chemin)
+    configurer(chemin)
+    cnx = _ouvrir()
     try:
         _effacer(cnx)
         cnx.commit()
@@ -134,7 +315,8 @@ def vider(chemin):
 
 def vider_et_remplir(chemin):
     """Repart d'un jeu de demonstration propre."""
-    cnx = sqlite3.connect(chemin)
+    configurer(chemin)
+    cnx = _ouvrir()
     try:
         _effacer(cnx)
         from . import demo

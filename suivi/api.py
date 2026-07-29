@@ -268,6 +268,23 @@ def journal():
     return ok(service.journal(int(request.args.get("limite", 120))))
 
 
+@suivi_bp.route("/api/suivi/etat")
+def etat():
+    """De quoi verifier d'un coup d'oeil sur quel moteur tourne le site.
+
+    Utile apres un deploiement : tant que `DATABASE_URL` n'est pas posee chez
+    l'hebergeur, la reponse indique `sqlite` et les donnees sont ephemeres.
+    Ne renvoie aucun identifiant de connexion.
+    """
+    return ok({
+        "moteur": db.moteur(),
+        "persistant": db.POSTGRES,
+        "personnes": (db.un("SELECT COUNT(*) AS n FROM personnes") or {}).get("n", 0),
+        "lives": (db.un("SELECT COUNT(*) AS n FROM lives") or {}).get("n", 0),
+        "rapports": (db.un("SELECT COUNT(*) AS n FROM rapports") or {}).get("n", 0),
+    })
+
+
 @suivi_bp.route("/api/suivi/demo", methods=["POST"])
 def demo():
     db.fermer()

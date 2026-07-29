@@ -64,6 +64,21 @@ Un dossier de travail contient `parts/` (les PDF d'origine, conservés tels
 quels), `parts.json` (leur ordre), `src_….pdf` (le document assemblé, seul
 fichier analysé et imposé) et `out_….pdf` (le résultat).
 
+## Déploiement
+
+L'application est prévue pour tourner **en local**. Les fichiers `vercel.json`
+et `api/index.py` permettent malgré tout un déploiement Vercel, avec deux
+limites imposées par l'hébergement *serverless* :
+
+* **envoi limité à 4,5 Mo par requête** — les PDF plus lourds sont refusés ;
+* **disque non persistant** — la variable `SUIVI_DONNEES` redirige la base et
+  les archives vers `/tmp`, dont le contenu disparaît à chaque démarrage à
+  froid. Les rapports du Suivi des lives n'y survivent donc pas.
+
+Pour un usage réel en ligne, préférer un hébergeur à disque persistant
+(Render, Railway, Fly.io) : `pip install -r requirements.txt` puis
+`gunicorn app:app`, avec `SUIVI_DONNEES` pointé sur un volume monté.
+
 ## Réglages avancés
 
 Dans `core.py` :

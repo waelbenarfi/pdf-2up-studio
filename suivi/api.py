@@ -14,8 +14,11 @@ from flask import (Blueprint, jsonify, render_template, request, send_file,
 
 from . import archive, db, schema, service
 
-DOSSIER_DONNEES = os.path.join(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__))), "donnees-suivi")
+# En local les donnees vivent a cote du code. Sur un hebergeur dont le disque
+# applicatif est en lecture seule (Vercel), SUIVI_DONNEES pointe vers le seul
+# dossier inscriptible, /tmp -- les donnees y sont alors ephemeres.
+DOSSIER_DONNEES = os.environ.get("SUIVI_DONNEES") or os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "donnees-suivi")
 CHEMIN_DB = os.path.join(DOSSIER_DONNEES, "suivi.db")
 DOSSIER_ARCHIVES = os.path.join(DOSSIER_DONNEES, "archives")
 

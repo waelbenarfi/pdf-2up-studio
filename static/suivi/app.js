@@ -121,10 +121,6 @@ function menuProfil () {
     onclick: () => { menu.remove(); aller('equipe') }
   }, h('span', { class: 's-lien-ico' }, '👥'), h('span', {}, 'Gérer l’équipe')),
   h('button', {
-    class: 's-lien',
-    onclick: () => { menu.remove(); regenerer() }
-  }, h('span', { class: 's-lien-ico' }, '♻️'), h('span', {}, 'Jeu de démonstration')),
-  h('button', {
     class: 's-lien', style: { color: 'var(--danger)' },
     onclick: () => { menu.remove(); toutRemettreAZero() }
   }, h('span', { class: 's-lien-ico' }, '🧹'), h('span', {}, 'Tout remettre à zéro')))
@@ -137,17 +133,6 @@ function menuProfil () {
       document.removeEventListener('click', fermer)
     })
   }, 0)
-}
-
-function regenerer () {
-  confirmer({
-    titre: 'Repartir d’un jeu de démonstration ?',
-    texte: 'Tous les lives, rapports, tickets et membres actuels seront '
-      + 'remplacés par un exemple complet. Les dossiers déjà écrits sur le '
-      + 'disque ne sont pas effacés.',
-    bouton: 'Régénérer',
-    surOui: () => rejouer(() => api.post('/demo'), 'Jeu de démonstration recréé.')
-  })
 }
 
 function toutRemettreAZero () {

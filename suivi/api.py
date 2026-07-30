@@ -287,6 +287,15 @@ def etat():
 
 @suivi_bp.route("/api/suivi/demo", methods=["POST"])
 def demo():
+    """Regenere le jeu de demonstration. Desactive par defaut.
+
+    Le bouton correspondant a ete retire de l'interface : ecraser une base de
+    travail par des donnees inventees n'est jamais ce qu'on veut. Poser
+    `SUIVI_DEMO=1` reactive la route.
+    """
+    if not db.DEMO_AUTORISEE:
+        return jsonify({"ok": False, "erreur": "Le jeu de démonstration est "
+                        "désactivé sur cette installation."}), 403
     db.fermer()
     db.vider_et_remplir(CHEMIN_DB)
     return ok({"recree": True})

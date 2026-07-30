@@ -86,6 +86,17 @@ En ligne, la variable se règle dans **Vercel → Settings → Environment Varia
 (nom `DATABASE_URL`, les trois environnements). Elle n'a rien à faire dans le
 dépôt : c'est un mot de passe.
 
+`/api/suivi/etat` indique quel moteur répond et les volumes en base — de quoi
+vérifier après un déploiement que la variable a bien été prise en compte.
+
+### Jeu de démonstration
+
+Il est **désactivé**. Une base neuve reste vide, prête pour vos vraies données :
+aucune donnée inventée ne s'écrit jamais toute seule, et le bouton qui les
+régénérait a été retiré du menu. `POST /api/suivi/demo` répond `403`.
+
+Pour le réactiver le temps d'une capture d'écran, poser `SUIVI_DEMO=1`.
+
 Pour transférer une base locale existante vers PostgreSQL :
 
 ```bat

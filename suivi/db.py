@@ -28,6 +28,13 @@ _CHEMIN = None
 URL = (os.environ.get("DATABASE_URL") or "").strip()
 POSTGRES = URL.startswith(("postgres://", "postgresql://"))
 
+# Le jeu de demonstration ne s'ecrit plus jamais tout seul : une base neuve
+# reste vide, et le bouton qui le regenerait a ete retire de l'interface. Il
+# faut poser SUIVI_DEMO=1 pour le rendre a nouveau disponible -- utile pour
+# une capture d'ecran, jamais sur l'installation de travail.
+DEMO_AUTORISEE = (os.environ.get("SUIVI_DEMO") or "").strip().lower() in (
+    "1", "true", "oui", "yes")
+
 
 def configurer(chemin):
     global _CHEMIN
@@ -40,8 +47,7 @@ def moteur():
 
 
 # ---------------------------------------------------------------- traduction
-_DEBUT_INSERT = re.compile(r"^\s*INSERT\s+INTO\s+([A-Za-z_][A-Za-z_0-9]*)",
-                           re.IGNORECASE)
+_DEBUT_INSERT = re.compile(r"^\s*INSERT\s+INTO\s+(\w+)", re.IGNORECASE)
 
 
 def _traduire(sql):
@@ -103,7 +109,7 @@ class _Curseur:
         return [dict(ligne) for ligne in self._curseur.fetchall()]
 
 
-class _Curseur_sqlite(_Curseur):
+class _CurseurSqlite(_Curseur):
     def __init__(self, curseur):
         _Curseur.__init__(self, curseur, curseur.lastrowid)
 
@@ -118,7 +124,7 @@ class _Connexion:
     def execute(self, sql, params=()):
         params = tuple(params or ())
         if not self.postgres:
-            return _Curseur_sqlite(self.brute.execute(sql, params))
+            return _CurseurSqlite(self.brute.execute(sql, params))
 
         sql, lire_id = _avec_returning(sql)
         curseur = self.brute.cursor()
@@ -209,14 +215,18 @@ def aujourdhui():
 
 
 # ---------------------------------------------------------------- demarrage
-def initialiser(chemin, avec_demo=True):
-    """Cree les tables si besoin, et n'ecrit le jeu de demonstration qu'une fois.
+def initialiser(chemin, avec_demo=None):
+    """Cree les tables si besoin. Une base neuve reste vide.
 
     Le drapeau `installe` marque la premiere ouverture : une base volontairement
     videe le reste apres un redemarrage. Sous PostgreSQL, poser ce drapeau est
-    aussi ce qui departage deux instances qui demarreraient en meme temps --
-    celle qui perd le `ON CONFLICT` ne remplit pas la demonstration.
+    aussi ce qui departage deux instances qui demarreraient en meme temps.
+
+    `avec_demo` laisse a None suit `SUIVI_DEMO`, c'est-a-dire : pas de donnees
+    inventees, jamais, sauf demande explicite.
     """
+    if avec_demo is None:
+        avec_demo = DEMO_AUTORISEE
     configurer(chemin)
     if POSTGRES:
         _initialiser_postgres(avec_demo)
@@ -314,7 +324,15 @@ def vider(chemin):
 
 
 def vider_et_remplir(chemin):
-    """Repart d'un jeu de demonstration propre."""
+    """Repart d'un jeu de demonstration propre.
+
+    Refuse tant que `SUIVI_DEMO` n'est pas posee : ecraser une base de travail
+    par des donnees inventees est une erreur dont on ne revient pas.
+    """
+    if not DEMO_AUTORISEE:
+        raise RuntimeError(
+            "Le jeu de démonstration est désactivé. Définissez SUIVI_DEMO=1 "
+            "pour l'autoriser.")
     configurer(chemin)
     cnx = _ouvrir()
     try:

@@ -72,6 +72,10 @@ const DESSINS = {
     + '<path d="m17 6 2 2"/><path d="m14.5 8.5 2 2"/>',
   cadenas: '<rect x="4" y="10" width="16" height="11" rx="2"/>'
     + '<path d="M8 10V7a4 4 0 0 1 8 0v3"/><path d="M12 15v2"/>',
+  // l'anse ouverte, tournee vers l'exterieur : le compte n'est pas verrouille,
+  // il n'a simplement pas encore de quoi se fermer
+  cadenas_ouvert: '<rect x="4" y="10" width="16" height="11" rx="2"/>'
+    + '<path d="M8 10V7a4 4 0 0 1 7.5-2"/><path d="M12 15v2"/>',
   bouclier: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'
     + '<path d="m9 12 2 2 4-4"/>',
   sortie: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>'

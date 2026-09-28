@@ -13,6 +13,7 @@ installee, pas ajouter une colonne des deux cotes (SQLite ne connait pas
 """
 
 import functools
+import hashlib
 import os
 
 from flask import jsonify, redirect, request, session, url_for
@@ -175,12 +176,25 @@ def connecter(personne_id, mdp):
     return utilisateur()
 
 
+def version(mdp_hache):
+    """Marque de version d'une session, derivee du mot de passe en place.
+
+    Changer le mot de passe doit fermer les sessions ouvertes ailleurs. Un
+    horodatage ne suffit pas : il est a la seconde, et deux changements dans
+    la meme seconde donneraient la meme marque -- une session qu'on croyait
+    fermee survivrait. Le condense du hache, lui, change a tous les coups,
+    le sel etant tire au hasard a chaque fois.
+
+    Seul un condense court part dans le cookie : le cookie est signe, pas
+    chiffre, et le hache n'a rien a y faire.
+    """
+    return hashlib.sha256((mdp_hache or "").encode("utf-8")).hexdigest()[:16]
+
+
 def _ouvrir_session(personne, compte):
     session.clear()
     session["pid"] = personne["id"]
-    # la date du dernier changement de mot de passe est embarquee : changer
-    # le mot de passe invalide les sessions ouvertes ailleurs
-    session["mdp_le"] = compte["mdp_le"]
+    session["v"] = version(compte["mdp"])
     session.permanent = True
 
 
@@ -199,12 +213,12 @@ def utilisateur():
     if not pid:
         return None
     ligne = db.un(
-        "SELECT p.id, p.nom, p.couleur, p.actif, c.role, c.mdp_le, c.mdp"
+        "SELECT p.id, p.nom, p.couleur, p.actif, c.role, c.mdp"
         " FROM personnes p JOIN comptes c ON c.personne_id = p.id"
         " WHERE p.id = ?", (pid,))
     if not ligne or not ligne["actif"] or not ligne["mdp"]:
         return None
-    if session.get("mdp_le") != ligne["mdp_le"]:
+    if session.get("v") != version(ligne["mdp"]):
         return None          # mot de passe change depuis : session perimee
     return {"id": ligne["id"], "nom": ligne["nom"],
             "couleur": ligne["couleur"], "role": ligne["role"],

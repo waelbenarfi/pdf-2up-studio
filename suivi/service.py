@@ -90,15 +90,22 @@ def personnes(actifs_seulement=False):
     Le mot de passe lui-meme ne sort jamais d'ici — seulement s'il existe,
     de quoi afficher « compte actif » ou « à créer ».
     """
+    # Les alias restent en minuscules : PostgreSQL replie tout identifiant non
+    # guillemete, donc « AS aMotDePasse » revenait en « amotdepasse » et
+    # l'interface ne trouvait plus la cle. SQLite, lui, garde la casse -- la
+    # difference ne se voyait donc qu'en ligne. Le nom lisible est pose ici.
     sql = ("SELECT p.*, COALESCE(c.role, 'technicien') AS role,"
-           " CASE WHEN COALESCE(c.mdp, '') != '' THEN 1 ELSE 0 END AS aMotDePasse,"
+           " CASE WHEN COALESCE(c.mdp, '') != '' THEN 1 ELSE 0 END AS a_mdp,"
            " COALESCE(c.derniere, '') AS derniere,"
-           " COALESCE(c.maj_le, '') AS mdp_maj_le,"
-           " COALESCE(c.maj_par, '') AS mdp_maj_par"
+           " COALESCE(c.mdp_le, '') AS mdp_le,"
+           " COALESCE(c.maj_par, '') AS mdp_par"
            " FROM personnes p LEFT JOIN comptes c ON c.personne_id = p.id")
     if actifs_seulement:
         sql += " WHERE p.actif = 1"
-    return db.tous(sql + " ORDER BY p.actif DESC, p.nom")
+    lignes = db.tous(sql + " ORDER BY p.actif DESC, p.nom")
+    for ligne in lignes:
+        ligne["aMotDePasse"] = 1 if ligne.pop("a_mdp", 0) else 0
+    return lignes
 
 
 def creer_personne(valeurs, par=""):

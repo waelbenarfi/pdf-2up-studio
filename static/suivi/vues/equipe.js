@@ -22,8 +22,8 @@ export async function vueEquipe () {
 
   return [
     etat.admin && sansMdp.length
-      ? info(`${sansMdp.length} membre(s) n'ont pas encore de mot de passe et `
-        + 'ne peuvent donc pas se connecter : '
+      ? info(`${sansMdp.length} membre(s) n'ont pas encore d'accès et ne `
+        + 'peuvent donc pas se connecter : '
         + sansMdp.map(p => p.nom).join(', ') + '.')
       : null,
     carte({
@@ -86,16 +86,20 @@ function fiche (personne, chiffres) {
     pastille(personne, 'grand'),
     h('div', { style: { flex: '1', minWidth: '0' } },
       h('b', { style: { fontSize: '15px' } }, personne.nom),
-      h('div', { style: { fontSize: '12.5px', color: 'var(--muted)' } },
-        personne.fonction || CONST.fonction)),
+      // le rôle, et non « Technicien de live » pour tout le monde : la fiche
+      // de l'administrateur se contredisait elle-même
+      h('div', {
+        class: 'piece',
+        style: { fontSize: '12.5px', color: 'var(--muted)' }
+      },
+      ico(personne.role === 'admin' ? 'bouclier' : 'equipe', 13),
+      role.libelle)),
     moi ? badge('vous', 'accent') : null,
     personne.actif ? null : badge('inactif', 'muted')),
   h('div', { class: 'b-groupe' },
-    badge(role.libelle, personne.role === 'admin' ? 'accent' : 'muted',
-      ico(personne.role === 'admin' ? 'bouclier' : 'equipe', 12)),
     personne.aMotDePasse
       ? badge('peut se connecter', 'ok', ico('cadenas', 12))
-      : badge('sans mot de passe', 'warn', ico('cadenas', 12))),
+      : badge('accès à créer', 'warn', ico('cadenas_ouvert', 12))),
   personne.email || personne.telephone
     ? h('div', { style: { fontSize: '12.5px', color: 'var(--muted)' } },
         [personne.email, personne.telephone].filter(Boolean).join(' · '))

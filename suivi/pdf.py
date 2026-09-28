@@ -20,7 +20,44 @@ ENCRE = (0.09, 0.13, 0.23)
 GRIS = (0.42, 0.47, 0.57)
 TRAIT = (0.85, 0.88, 0.93)
 FOND = (0.96, 0.97, 0.99)
-BLEU = (0.44, 0.49, 1.0)
+# Le bleu de la carte de marque, en composantes PDF puis en hexadecimal.
+BLEU = (0.09, 0.29, 0.49)              # #17497E
+NAVY = "#17497E"
+
+# L'embleme Wael Academy, pose en tete du rapport.
+#
+# MuPDF lit le SVG mais ne resout pas le `currentColor` que porte le fichier :
+# tel quel, le sceau sortait en noir. La couleur est donc ecrite en dur dans
+# une copie en memoire, l'original restant en currentColor pour le site.
+EMBLEME = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                       "static", "wael", "emblem.svg")
+_LOGO = {}
+
+
+def logo():
+    """Le sceau en document PDF reutilisable, ou None s'il manque."""
+    if "doc" not in _LOGO:
+        _LOGO["doc"] = None
+        try:
+            with open(EMBLEME, encoding="utf-8") as flux:
+                source = flux.read().replace("currentColor", NAVY)
+            svg = fitz.open(stream=source.encode("utf-8"), filetype="svg")
+            _LOGO["doc"] = fitz.open("pdf", svg.convert_to_pdf())
+        except Exception:
+            _LOGO["doc"] = None          # un rapport sans logo vaut mieux que pas de rapport
+    return _LOGO["doc"]
+
+
+def poser_logo(page, droite, haut, largeur=52):
+    """Pose le sceau, coin superieur droit donne, et rend sa hauteur."""
+    marque = logo()
+    if marque is None:
+        return 0
+    boite = marque[0].rect
+    hauteur = largeur * boite.height / boite.width
+    page.show_pdf_page(fitz.Rect(droite - largeur, haut, droite, haut + hauteur),
+                       marque, 0)
+    return hauteur
 
 TONS = {
     "ok": (0.13, 0.66, 0.45),
@@ -250,7 +287,8 @@ class Feuille(object):
                            fitz.Point(LARGEUR - MARGE, y - 12),
                            color=TRAIT, width=0.7)
             poser(page, (MARGE, y),
-                  "Suivi des lives · édité le %s" % edite, 8, couleur=GRIS,
+                  "Espace technique Wael Academy · édité le %s" % edite, 8,
+                  couleur=GRIS,
                   arabe_present=self.ar)
             libelle = "Page %d / %d" % (index + 1, total)
             recul = largeur_texte(libelle, 8, arabe_present=self.ar)
@@ -291,12 +329,15 @@ def construire(rapport, fichiers=(), etapes=(), historique=()):
     feuille = Feuille("%s · %s" % (rapport["reference"], rapport["nom_live"]), ar)
     page = feuille.page
 
-    # en-tete
+    # en-tete : le titre a gauche, le sceau de l'academie a droite
     poser(page, (MARGE, MARGE + 16), "RAPPORT DE SÉANCE", 19, gras=True,
           arabe_present=ar)
     poser(page, (MARGE, MARGE + 33), rapport["reference"], 10.5, couleur=GRIS,
           arabe_present=ar)
-    feuille.y = MARGE + 50
+    haut_logo = poser_logo(page, LARGEUR - MARGE, MARGE - 6)
+    poser(page, (LARGEUR - MARGE - 52, MARGE - 2 + haut_logo + 11),
+          "Wael Academy", 8.5, couleur=GRIS, arabe_present=ar)
+    feuille.y = max(MARGE + 50, MARGE + haut_logo + 14)
 
     # bandeau d'etat
     hauteur = 46

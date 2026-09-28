@@ -140,12 +140,15 @@ def supprimer_personne(ident, par=""):
 SELECT_LIVE = """
 SELECT l.*, p.nom AS responsable_nom, p.couleur AS responsable_couleur,
        r.id AS rapport_id, r.reference AS rapport_reference, r.etat AS rapport_etat,
-       COALESCE(t.faites, 0) AS taches_faites
+       COALESCE(t.faites, 0) AS taches_faites,
+       COALESCE(n.ecrits, 0) AS notes_total
 FROM lives l
 LEFT JOIN personnes p ON p.id = l.responsable_id
 LEFT JOIN rapports  r ON r.live_id = l.id
 LEFT JOIN (SELECT live_id, COUNT(*) AS faites FROM taches
            WHERE fait = 1 GROUP BY live_id) t ON t.live_id = l.id
+LEFT JOIN (SELECT live_id, COUNT(*) AS ecrits FROM notes
+           GROUP BY live_id) n ON n.live_id = l.id
 """
 
 
@@ -164,6 +167,7 @@ def _enrichir_live(live):
     live["tachesTotal"] = total
     live["tachesRestantes"] = total - faites
     live["tachesCompletes"] = faites >= total
+    live["nbNotes"] = int(live.get("notes_total") or 0)
     return live
 
 
@@ -292,6 +296,11 @@ def repartir(date, par=""):
 def taches_de(live_id):
     faites = {ligne["cle"]: ligne for ligne in db.tous(
         "SELECT * FROM taches WHERE live_id = ?", (live_id,))}
+    notes = {}
+    for ligne in db.tous("SELECT * FROM notes WHERE live_id = ?"
+                         " ORDER BY id", (live_id,)):
+        notes.setdefault(ligne["cle"], []).append(ligne)
+
     sortie = []
     for item in schema.TACHES:
         ligne = faites.get(item["cle"]) or {}
@@ -300,6 +309,7 @@ def taches_de(live_id):
             "fait": bool(ligne.get("fait")),
             "fait_le": ligne.get("fait_le", ""),
             "fait_par": ligne.get("fait_par", ""),
+            "notes": notes.get(item["cle"], []),
         })
         sortie.append(etape)
     return sortie
@@ -337,6 +347,40 @@ def basculer_tache(live_id, cle, fait, par=""):
     journaliser("Étape %s" % ("faite" if fait else "rouverte"),
                 seance["titre"], etape["libelle"], par)
     return {"live": live(live_id), "taches": taches_de(live_id)}
+
+
+# Un commentaire se rattache a (seance, etape) et non a la ligne de `taches` :
+# le cas courant est justement celui d'une etape NON faite -- le professeur
+# n'a pas repondu, il faudra le rappeler. Exiger la case cochee d'abord
+# interdirait d'ecrire precisement quand on en a le plus besoin.
+def commenter(live_id, cle, texte, par=""):
+    seance = db.un("SELECT * FROM lives WHERE id = ?", (live_id,))
+    if not seance:
+        raise Refus("Live introuvable.")
+    if cle not in schema.CLES_TACHES:
+        raise Refus("Étape inconnue : %s." % cle)
+    texte = str(texte or "").strip()
+    if not texte:
+        raise Refus("Le commentaire est vide.")
+    if len(texte) > schema.NOTE_MAX:
+        raise Refus("Commentaire trop long (%d caractères maximum)."
+                    % schema.NOTE_MAX)
+
+    etape = next(item for item in schema.TACHES if item["cle"] == cle)
+    db.inserer("notes", {"live_id": live_id, "cle": cle, "texte": texte,
+                         "auteur": par or "—", "cree_le": db.maintenant()})
+    journaliser("Commentaire sur une étape", seance["titre"],
+                etape["libelle"], par)
+    return {"live": live(live_id), "taches": taches_de(live_id)}
+
+
+def supprimer_note(ident, par=""):
+    note = db.un("SELECT * FROM notes WHERE id = ?", (ident,))
+    if not note:
+        raise Refus("Commentaire introuvable.")
+    db.supprimer("notes", ident)
+    return {"live": live(note["live_id"]),
+            "taches": taches_de(note["live_id"])}
 
 
 # ================================================================= rapports
@@ -831,7 +875,8 @@ def _repartition(liste):
     for rapport_ in liste:
         compte[rapport_["etat"]] = compte.get(rapport_["etat"], 0) + 1
     return [{"cle": item["cle"], "libelle": item["libelle"],
-             "icone": item["icone"], "ton": item["ton"],
+             "icone": item["icone"], "symbole": item["symbole"],
+             "ton": item["ton"],
              "valeur": compte.get(item["cle"], 0)} for item in schema.ETATS]
 
 

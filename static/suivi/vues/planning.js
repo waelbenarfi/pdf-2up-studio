@@ -13,6 +13,7 @@ import {
 import { ouvrirFormulaire } from './rapports.js'
 import { badgeTaches, boutonTaches, puceTaches } from './taches.js'
 
+import { ico } from '../icones.js'
 export async function vuePlanning (params) {
   const date = params.date || aujourdhui()
   const lives = await api.get('/lives', { date })
@@ -20,13 +21,13 @@ export async function vuePlanning (params) {
   const equipe = etat.personnes.filter(p => p.actif)
 
   const navigation = h('div', { class: 'b-groupe' },
-    h('button', { class: 'b ico', title: 'Jour précédent', onclick: () => aller('planning', { date: decalerJour(date, -1) }) }, '‹'),
+    h('button', { class: 'b ico', title: 'Jour précédent', onclick: () => aller('planning', { date: decalerJour(date, -1) }) }, ico('gauche')),
     h('input', {
       class: 's-saisie', type: 'date', value: date,
       style: { width: '160px' },
       onchange: (e) => aller('planning', { date: e.target.value || aujourdhui() })
     }),
-    h('button', { class: 'b ico', title: 'Jour suivant', onclick: () => aller('planning', { date: decalerJour(date, 1) }) }, '›'),
+    h('button', { class: 'b ico', title: 'Jour suivant', onclick: () => aller('planning', { date: decalerJour(date, 1) }) }, ico('droite')),
     date !== aujourdhui()
       ? h('button', { class: 'b', onclick: () => aller('planning', { date: aujourdhui() }) }, "Aujourd'hui")
       : null)
@@ -62,19 +63,19 @@ export async function vuePlanning (params) {
         class: 'b',
         onclick: () => repartir(date),
         disabled: !lives.length || !equipe.length
-      }, '⇄ Répartir'),
+      }, ico('echange', 15), 'Répartir'),
       h('button', { class: 'b primaire', onclick: () => ouvrirLive({ date }) },
-        '＋ Nouveau live')
+        ico('plus', 15), 'Nouveau live')
     ]
   },
   lives.length
     ? h('div', { class: 's-colonnes' }, ...colonnes)
     : vide({
-      ico: '🗓',
+      dessin: 'agenda',
       titre: 'Aucun live ce jour-là',
       texte: 'Ajoutez les séances prévues, puis répartissez-les entre les responsables.',
       action: h('button', { class: 'b primaire', onclick: () => ouvrirLive({ date }) },
-        '＋ Planifier un live')
+        ico('plus', 15), 'Planifier un live')
     }),
   equipe.length
     ? null
@@ -90,7 +91,7 @@ function colonne ({ personne, lives, date }) {
   const corps = h('div', { class: 's-colonne-corps' },
     ...lives.map(live => jeton(live)),
     lives.length ? null : h('div', { class: 's-colonne-vide' },
-      personne ? 'Aucun live attribué' : 'Tout est attribué 👍'))
+      personne ? 'Aucun live attribué' : 'Tout est attribué'))
 
   const boite = h('div', { class: 's-colonne' },
     h('div', { class: 's-colonne-tete' },
@@ -133,9 +134,9 @@ function jeton (live) {
     h('div', { class: 'outils' },
       live.aRapport
         ? null
-        : boutonIco('📝', 'Remplir le rapport', () => ouvrirFormulaire({ live })),
-      boutonIco('✏️', 'Modifier', () => ouvrirLive({ live })),
-      boutonIco('🗑', 'Supprimer', () => supprimerLive(live), 'danger')))
+        : boutonIco(ico('document'), 'Remplir le rapport', () => ouvrirFormulaire({ live })),
+      boutonIco(ico('crayon'), 'Modifier', () => ouvrirLive({ live })),
+      boutonIco(ico('corbeille'), 'Supprimer', () => supprimerLive(live), 'danger')))
 
   carteLive.addEventListener('dragstart', (e) => {
     e.dataTransfer.setData('text/plain', String(live.id))
@@ -204,7 +205,7 @@ export function ouvrirLive ({ live = null, date = null, apres = null } = {}) {
     corps,
     actions: (fermer) => [
       modif
-        ? h('button', { class: 'b danger', onclick: () => { fermer(); supprimerLive(live) } }, '🗑 Supprimer')
+        ? h('button', { class: 'b danger', onclick: () => { fermer(); supprimerLive(live) } }, ico('corbeille', 15), 'Supprimer')
         : null,
       h('div', { class: 'droite' },
         h('button', { class: 'b', onclick: fermer }, 'Annuler'),
@@ -247,14 +248,14 @@ function sousTitreLive (live) {
 
 /** Sur une carte de planning : une seule étiquette, le rapport d'abord. */
 function etiquetteRapport (live) {
-  if (live.aRapport) return badge('rapport ✓', 'ok')
+  if (live.aRapport) return badge('rapport', 'ok', ico('coche', 12))
   if (live.sansRapport) return badge('rapport manquant', 'danger')
   return badgeStatutLive(live.statut)
 }
 
 /** Dans la liste, le statut a déjà sa colonne : celle-ci ne parle que du rapport. */
 function colonneRapport (live) {
-  if (live.aRapport) return badge(live.rapport_reference, 'ok', '✓')
+  if (live.aRapport) return badge(live.rapport_reference, 'ok', ico('coche'))
   if (live.sansRapport) return badge('manquant', 'danger')
   return badge('à venir', 'muted')
 }
@@ -273,8 +274,8 @@ export async function vueLives (params) {
     titre: `Toutes les séances · ${lives.length}`,
     sous: 'Historique complet, avec ou sans rapport.',
     actions: [
-      h('a', { class: 'b', href: '/api/suivi/export/lives.csv', download: '' }, '⬇︎ CSV'),
-      h('button', { class: 'b primaire', onclick: () => ouvrirLive({}) }, '＋ Nouveau live')
+      h('a', { class: 'b', href: '/api/suivi/export/lives.csv', download: '' }, ico('telecharger', 15), 'CSV'),
+      h('button', { class: 'b primaire', onclick: () => ouvrirLive({}) }, ico('plus', 15), 'Nouveau live')
     ]
   },
   h('div', { style: { marginBottom: '14px' } },
@@ -312,10 +313,10 @@ export async function vueLives (params) {
         boutonTaches(live),
         live.aRapport
           ? null
-          : boutonIco('📝', 'Remplir le rapport', () => ouvrirFormulaire({ live })),
-        boutonIco('✏️', 'Modifier', () => ouvrirLive({ live })),
-        boutonIco('🗑', 'Supprimer', () => supprimerLive(live), 'danger'))
+          : boutonIco(ico('document'), 'Remplir le rapport', () => ouvrirFormulaire({ live })),
+        boutonIco(ico('crayon'), 'Modifier', () => ouvrirLive({ live })),
+        boutonIco(ico('corbeille'), 'Supprimer', () => supprimerLive(live), 'danger'))
     ],
-    message: vide({ ico: '🗓', titre: 'Aucune séance', texte: 'Aucune séance ne correspond à ces filtres.' })
+    message: vide({ dessin: 'agenda', titre: 'Aucune séance', texte: 'Aucune séance ne correspond à ces filtres.' })
   }))
 }

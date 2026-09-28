@@ -6,6 +6,7 @@ import {
   routeCourante
 } from './noyau.js'
 import { confirmer } from './ui.js'
+import { ico } from './icones.js'
 import { vueTableau } from './vues/tableau.js'
 import { vuePlanning, vueLives } from './vues/planning.js'
 import { vueRapports, ouvrirFormulaire } from './vues/rapports.js'
@@ -14,19 +15,19 @@ import { vueSupport } from './vues/support.js'
 import { vueEquipe } from './vues/equipe.js'
 
 const ECRANS = [
-  { cle: 'tableau', ico: '📊', nom: 'Tableau de bord', vue: vueTableau,
+  { cle: 'tableau', ico: 'tableau', nom: 'Tableau de bord', vue: vueTableau,
     titre: 'Tableau de bord', sous: 'Tout ce qui se passe aujourd’hui, en un coup d’œil' },
-  { cle: 'planning', ico: '🗓', nom: 'Planification', vue: vuePlanning,
+  { cle: 'planning', ico: 'agenda', nom: 'Planification', vue: vuePlanning,
     titre: 'Planification des lives', sous: 'Répartir les séances entre les responsables' },
-  { cle: 'lives', ico: '🎥', nom: 'Toutes les séances', vue: vueLives,
+  { cle: 'lives', ico: 'video', nom: 'Toutes les séances', vue: vueLives,
     titre: 'Séances', sous: 'Historique complet des lives' },
-  { cle: 'rapports', ico: '📝', nom: 'Rapports', vue: vueRapports, compteur: 'sansRapport',
+  { cle: 'rapports', ico: 'document', nom: 'Rapports', vue: vueRapports, compteur: 'sansRapport',
     titre: 'Rapports quotidiens', sous: 'Un rapport après chaque live, même quand tout va bien' },
-  { cle: 'archive', ico: '🗂', nom: 'Archive', vue: vueArchive,
+  { cle: 'archive', ico: 'boite', nom: 'Archive', vue: vueArchive,
     titre: 'Archive des rapports', sous: 'Rangement automatique par année et par mois' },
-  { cle: 'support', ico: '🎫', nom: 'Support technique', vue: vueSupport, compteur: 'tickets',
+  { cle: 'support', ico: 'bouee', nom: 'Support technique', vue: vueSupport, compteur: 'tickets',
     titre: 'Service technique', sous: 'Tickets, échanges et pièces jointes' },
-  { cle: 'equipe', ico: '👥', nom: 'Équipe', vue: vueEquipe,
+  { cle: 'equipe', ico: 'equipe', nom: 'Équipe', vue: vueEquipe,
     titre: 'Équipe', sous: 'Qui suit les lives et écrit les rapports' }
 ]
 
@@ -47,7 +48,7 @@ function dessinerNav () {
       class: `s-lien ${nom === ecran.cle ? 'actif' : ''}`,
       href: `#/${ecran.cle}`
     },
-    h('span', { class: 's-lien-ico' }, ecran.ico),
+    h('span', { class: 's-lien-ico' }, ico(ecran.ico)),
     h('span', { class: 'txt' }, ecran.nom),
     compte
       ? h('span', { class: `s-lien-num ${ecran.compteur === 'sansRapport' ? 'alerte' : ''}` },
@@ -68,7 +69,7 @@ function dessinerEntete () {
   remplir($('#hautActions'),
     h('button', {
       class: 'b primaire', onclick: () => ouvrirFormulaire({})
-    }, '＋ Rapport'),
+    }, ico('plus', 15), 'Rapport'),
     h('button', {
       class: 's-qui', onclick: (e) => { e.stopPropagation(); menuProfil() }
     },
@@ -81,7 +82,7 @@ function dessinerEntete () {
       h('b', {}, personne ? personne.nom : 'Choisir…'))),
     h('button', {
       class: 'b ico', title: 'Thème clair / sombre', onclick: basculerTheme
-    }, '☾'))
+    }, ico('lune')))
 }
 
 function menuProfil () {
@@ -119,11 +120,11 @@ function menuProfil () {
   h('button', {
     class: 's-lien',
     onclick: () => { menu.remove(); aller('equipe') }
-  }, h('span', { class: 's-lien-ico' }, '👥'), h('span', {}, 'Gérer l’équipe')),
+  }, h('span', { class: 's-lien-ico' }, ico('equipe')), h('span', {}, 'Gérer l’équipe')),
   h('button', {
     class: 's-lien', style: { color: 'var(--danger)' },
     onclick: () => { menu.remove(); toutRemettreAZero() }
-  }, h('span', { class: 's-lien-ico' }, '🧹'), h('span', {}, 'Tout remettre à zéro')))
+  }, h('span', { class: 's-lien-ico' }, ico('balai')), h('span', {}, 'Tout remettre à zéro')))
 
   document.body.append(menu)
   setTimeout(() => {
@@ -183,14 +184,15 @@ async function majCompteurs () {
 
 /* ------------------------------------------------------------ demarrage */
 async function demarrer () {
-  appliquerTheme(localStorage.getItem('twoup-theme') || 'dark')
+  // clair par défaut : la charte Wael Academy est navy sur fond clair
+  appliquerTheme(localStorage.getItem('twoup-theme') || 'light')
   for (const ecran of ECRANS) route(ecran.cle, ecran.vue)
 
   try {
     await chargerPersonnes()
   } catch (erreur) {
     remplir($('#vue'), h('div', { class: 's-vide' },
-      h('span', { class: 'ico' }, '⛔'),
+      h('span', { class: 'ico' }, ico('interdit', 30)),
       h('b', {}, 'Le serveur ne répond pas'),
       h('p', {}, erreur.message)))
     return

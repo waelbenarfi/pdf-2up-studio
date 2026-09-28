@@ -4,11 +4,19 @@ Deuxième fonction de **2-up Studio**, complètement séparée de l'outil
 d'imposition PDF : sa propre base de données, ses propres dossiers, sa propre
 interface.
 
-**Accès : http://localhost:1200/operations** — ou le bouton « 🎥 Suivi des
+**Accès : http://localhost:1200/operations** — ou le bouton « Suivi des
 lives » en haut de la page 2-up.
 
 Sept écrans, un par point de la demande. Tout se crée, se modifie, s'affiche
 et se supprime depuis l'interface.
+
+**Aux couleurs de Wael Academy.** L'interface reprend la carte de marque
+officielle : le navy `#17497E` porte les boutons, les éléments actifs et les
+barres, le vert `#2FA36B` marque ce qui est terminé. L'emblème remplace
+l'ancienne vignette, en blanc sur sa pastille navy, et sert aussi de favicon.
+Les émojis ont laissé place à un jeu d'icônes tracées (`static/suivi/icones.js`) :
+un émoji change de dessin d'un système à l'autre et porte ses propres
+couleurs ; ces icônes-ci sont en `currentColor` et suivent le thème.
 
 **Un seul rôle : « Technicien de live ».** Toute personne enregistrée peut
 recevoir des séances, écrire des rapports, ouvrir et traiter des tickets.
@@ -115,6 +123,24 @@ rapport fait exception : elle n'est pas cliquable, elle se coche toute seule
 à l'envoi du rapport et se décoche si le rapport est supprimé — sans quoi le
 tableau de bord pourrait annoncer un rapport qui n'existe pas. Le bouton
 **Rédiger** ouvre le formulaire directement depuis la liste.
+
+#### Commentaires sur une étape
+
+Chaque étape a son propre fil de commentaires, ouvert par la bulle à droite
+de la ligne. Le cas qui les justifie est celui d'une étape **non faite** :
+
+> — Le prof n'a pas pris son téléphone, à rappeler vers 18 h 30.
+> — Rappelé à 18 h 40, toujours rien.
+> — Joint à 19 h, il arrive.
+
+C'est pour cela qu'un commentaire se rattache au couple *(séance, étape)* et
+non à la case cochée : exiger la case d'abord interdirait d'écrire justement
+quand on en a le plus besoin. Cocher ou décocher l'étape ne touche pas au fil.
+
+Chaque message garde son auteur et son heure, se supprime un par un, et tient
+en 1 000 caractères. `Ctrl+Entrée` envoie sans lâcher le clavier. La bulle du
+compteur **☑ 3/7** signale, d'un coup d'œil sur le planning, qu'une séance
+porte des commentaires.
 
 Le tableau de bord résume la journée : *« 12 séance(s) au programme · 34
 étape(s) restante(s) »*. L'export CSV des séances porte deux colonnes de

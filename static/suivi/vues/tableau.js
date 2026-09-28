@@ -10,32 +10,33 @@ import {
 import { ouvrirFormulaire, ouvrirFiche } from './rapports.js'
 import { puceTaches } from './taches.js'
 
+import { ico } from '../icones.js'
 export async function vueTableau () {
   const data = await api.get('/tableau')
   const k = data.indicateurs
 
   const indicateurs = h('div', { class: 's-grille k4' },
-    kpi({ ico: '🎥', nom: 'Lives aujourd’hui', valeur: k.livesJour, ton: 'accent',
+    kpi({ dessin: 'video', nom: 'Lives aujourd’hui', valeur: k.livesJour, ton: 'accent',
       sous: dateLongue(data.date), onclic: () => aller('planning') }),
-    kpi({ ico: '📝', nom: 'Rapports envoyés', valeur: k.rapportsJour, ton: 'ok',
+    kpi({ dessin: 'document', nom: 'Rapports envoyés', valeur: k.rapportsJour, ton: 'ok',
       sous: 'aujourd’hui', onclic: () => aller('rapports') }),
-    kpi({ ico: '⏳', nom: 'Lives sans rapport', valeur: k.sansRapportJour,
+    kpi({ dessin: 'sablier', nom: 'Lives sans rapport', valeur: k.sansRapportJour,
       ton: k.sansRapportJour ? 'danger' : 'ok',
       sous: `${k.sansRapportTotal} sur les 30 derniers jours`,
       onclic: () => aller('rapports') }),
-    kpi({ ico: '⚠️', nom: 'Incidents', valeur: k.incidents, ton: 'warn',
+    kpi({ dessin: 'alerte', nom: 'Incidents', valeur: k.incidents, ton: 'warn',
       sous: '30 derniers jours',
       onclic: () => aller('rapports', { etat: 'petit' }) }),
-    kpi({ ico: '❌', nom: 'Incidents critiques', valeur: k.critiques,
+    kpi({ dessin: 'croix_cercle', nom: 'Incidents critiques', valeur: k.critiques,
       ton: k.critiques ? 'danger' : 'ok', sous: 'problèmes importants ou urgence critique',
       onclic: () => aller('rapports', { etat: 'important' }) }),
-    kpi({ ico: '🎫', nom: 'Tickets support ouverts', valeur: k.ticketsOuverts,
+    kpi({ dessin: 'billet', nom: 'Tickets support ouverts', valeur: k.ticketsOuverts,
       ton: k.ticketsOuverts ? 'info' : 'ok', sous: 'nouveaux ou en cours',
       onclic: () => aller('support') }),
-    kpi({ ico: '⏱', nom: 'Temps moyen de résolution',
+    kpi({ dessin: 'horloge', nom: 'Temps moyen de résolution',
       valeur: duree(k.resolutionMoyenne), ton: 'violet',
       sous: 'tickets résolus' }),
-    kpi({ ico: '📊', nom: 'Taux de couverture', valeur: k.tauxCouverture + ' %',
+    kpi({ dessin: 'tableau', nom: 'Taux de couverture', valeur: k.tauxCouverture + ' %',
       ton: tonTaux(k.tauxCouverture),
       sous: `${k.rapportsEnRetard} rapport(s) envoyé(s) en retard` }))
 
@@ -72,7 +73,7 @@ export async function vueTableau () {
       actions: [
         h('button', { class: 'b petit', onclick: () => aller('rapports') }, 'Tout l’historique'),
         h('button', { class: 'b primaire petit', onclick: () => ouvrirFormulaire({}) },
-          '＋ Nouveau rapport')
+          ico('plus', 15), 'Nouveau rapport')
       ]
     }, historique(data.historique)),
     carte({ titre: 'Suivi par responsable', sous: 'Part des séances couvertes par un rapport, 30 derniers jours' },
@@ -88,7 +89,7 @@ const legende = (couleur, texte) => h('span', {},
 /* --------------------------------------------------------------- blocs */
 function journee (lives) {
   if (!lives.length) {
-    return vide({ ico: '🌤', titre: 'Aucun live aujourd’hui', texte: 'Rien n’est planifié pour la journée.' })
+    return vide({ dessin: 'agenda', titre: 'Aucun live aujourd’hui', texte: 'Rien n’est planifié pour la journée.' })
   }
   return h('div', { class: 's-liste' }, ...lives.map(live =>
     h('div', { class: `s-item ${live.sansRapport ? 'alerte' : ''}` },
@@ -106,14 +107,14 @@ function journee (lives) {
 }
 
 function etiquetteLive (live) {
-  if (live.aRapport) return badge('rapport ✓', 'ok')
+  if (live.aRapport) return badge('rapport', 'ok', ico('coche', 12))
   if (live.sansRapport) return badge('rapport manquant', 'danger')
   return badgeStatutLive(live.statut)
 }
 
 function manquants (lives) {
   if (!lives.length) {
-    return vide({ ico: '✅', titre: 'Tout est à jour', texte: 'Chaque séance terminée a bien son rapport.' })
+    return vide({ dessin: 'coche_cercle', titre: 'Tout est à jour', texte: 'Chaque séance terminée a bien son rapport.' })
   }
   return h('div', { class: 's-liste' }, ...lives.map(live =>
     h('div', { class: 's-item alerte' },
@@ -140,7 +141,7 @@ function historique (liste) {
       badgeEtat(rapport.etat),
       h('span', { class: 'discret' }, ilYA(rapport.envoye_le))
     ],
-    message: vide({ ico: '📝', titre: 'Aucun rapport pour l’instant' })
+    message: vide({ dessin: 'document', titre: 'Aucun rapport pour l’instant' })
   })
 }
 
@@ -166,7 +167,7 @@ function equipe (liste) {
 
 function repartition (liste) {
   const total = liste.reduce((somme, item) => somme + item.valeur, 0)
-  if (!total) return vide({ ico: '📊', titre: 'Pas encore de données' })
+  if (!total) return vide({ dessin: 'tableau', titre: 'Pas encore de données' })
   return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '16px' } },
     ...liste.map(item => {
       const part = Math.round(100 * item.valeur / total)

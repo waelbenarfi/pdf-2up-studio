@@ -6,6 +6,7 @@ import { api, h, dateCourte, poids, essayer } from '../noyau.js'
 import { carte, vide, info, badgeEtat, badge, icoFichier, remplir } from '../ui.js'
 import { ouvrirFiche } from './rapports.js'
 
+import { ico } from '../icones.js'
 export async function vueArchive () {
   const { arbre, stats } = await api.get('/archive')
 
@@ -16,9 +17,9 @@ export async function vueArchive () {
     },
     h('div', { style: { display: 'flex', flexDirection: 'column', gap: '14px' } },
       h('div', { class: 's-grille k3' },
-        petit('📁', 'Dossiers', stats.dossiers),
-        petit('📄', 'Fichiers', stats.fichiers),
-        petit('💾', 'Taille totale', poids(stats.octets))),
+        petit('boite', 'Dossiers', stats.dossiers),
+        petit('fichier', 'Fichiers', stats.fichiers),
+        petit('archive_zip', 'Taille totale', poids(stats.octets))),
       h('div', { class: 's-chemin' }, stats.racine),
       info('Ces dossiers sont créés sur cet ordinateur au fur et à mesure des '
         + 'envois. Pour les retrouver dans Google Drive, il suffit de placer '
@@ -29,15 +30,15 @@ export async function vueArchive () {
     arbre.length && arbre.some(a => a.nombre)
       ? null
       : vide({
-        ico: '🗂',
+        dessin: 'boite',
         titre: 'Aucun rapport archivé pour l’instant',
         texte: 'Dès qu’un rapport est envoyé, son dossier apparaît ici.'
       })
   ]
 }
 
-const petit = (ico, nom, valeur) => h('div', { class: 's-item' },
-  h('span', { style: { fontSize: '20px' } }, ico),
+const petit = (dessin, nom, valeur) => h('div', { class: 's-item' },
+  h('span', { class: 'genre' }, ico(dessin, 20)),
   h('div', { class: 'corps' },
     h('b', {}, String(valeur)),
     h('small', {}, nom)))
@@ -47,7 +48,7 @@ function anneeNoeud (annee) {
   const enfants = h('div', { class: 's-noeud', hidden: true })
   let charge = false
   const tete = branche({
-    ico: '📁',
+    dessin: 'boite',
     nom: String(annee.annee),
     compte: `${annee.nombre} rapport${annee.nombre > 1 ? 's' : ''}`,
     surOuverture: (ouvert) => {
@@ -73,7 +74,7 @@ function moisNoeud (mois) {
   const enfants = h('div', { class: 's-noeud', hidden: true })
   let charge = false
   const tete = branche({
-    ico: mois.nombre ? '📂' : '📁',
+    dessin: 'boite',
     nom: mois.nom,
     vide: !mois.nombre,
     compte: mois.nombre ? String(mois.nombre) : '—',
@@ -95,7 +96,7 @@ function rapportNoeud (rapport) {
   const enfants = h('div', { class: 's-noeud', hidden: true })
   let charge = false
   const tete = branche({
-    ico: '📄',
+    dessin: 'fichier',
     nom: `${rapport.reference} · ${rapport.nom_live}`,
     compte: dateCourte(rapport.date),
     apres: badgeEtat(rapport.etat),
@@ -122,7 +123,7 @@ function rapportNoeud (rapport) {
             h('a', {
               class: 'b ico petit', title: 'Télécharger', download: '',
               href: `/api/suivi/fichier?chemin=${encodeURIComponent(fichier.chemin)}&dl=1`
-            }, '⬇︎'))),
+            }, ico('telecharger')))),
           dossier.fichiers.length ? null : badge('dossier vide', 'muted')),
         h('div', { class: 'b-groupe', style: { marginTop: '10px' } },
           h('button', {
@@ -133,7 +134,7 @@ function rapportNoeud (rapport) {
   return h('div', {}, tete, enfants)
 }
 
-function branche ({ ico, nom, compte, vide: estVide, apres, surOuverture }) {
+function branche ({ dessin, nom, compte, vide: estVide, apres, surOuverture }) {
   let ouvert = false
   const noeud = h('div', {
     class: `s-branche ${estVide ? 'vide' : ''}`,
@@ -141,8 +142,8 @@ function branche ({ ico, nom, compte, vide: estVide, apres, surOuverture }) {
     onclick: () => basculer(),
     onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); basculer() } }
   },
-  h('span', { class: 'fleche' }, '▶'),
-  h('span', {}, ico),
+  h('span', { class: 'fleche' }, ico('droite', 13)),
+  h('span', { class: 'genre' }, ico(dessin, 16)),
   h('span', { class: 'nom' }, nom),
   apres,
   h('span', { class: 'compte' }, compte))

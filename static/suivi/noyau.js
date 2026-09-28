@@ -1,5 +1,7 @@
 // Briques de base : construction du DOM, appels serveur, etat, navigation.
 
+import { ico } from './icones.js'
+
 export const CONST = window.SUIVI || {}
 
 /* ------------------------------------------------------------------ DOM */
@@ -189,8 +191,9 @@ export const prioriteDe = (cle) => trouver(CONST.priorites, cle) || CONST.priori
 /* -------------------------------------------------------------- messages */
 export function toast (texte, genre = 'ok') {
   const boite = $('#toasts')
-  const icone = genre === 'err' ? '⛔' : genre === 'info' ? 'ℹ️' : '✅'
-  const noeud = h('div', { class: `s-toast ${genre}` }, h('span', {}, icone),
+  const dessin = genre === 'err' ? 'interdit' : genre === 'info' ? 'info' : 'coche_cercle'
+  const noeud = h('div', { class: `s-toast ${genre}` },
+    h('span', { class: 'marque' }, ico(dessin, 17)),
     h('span', {}, texte))
   boite.append(noeud)
   setTimeout(() => {
@@ -243,7 +246,7 @@ export async function dessiner () {
     document.dispatchEvent(new CustomEvent('suivi:vue', { detail: { nom, params } }))
   } catch (erreur) {
     remplir(cible, h('div', { class: 's-vide' },
-      h('span', { class: 'ico' }, '⚠️'),
+      h('span', { class: 'ico' }, ico('alerte', 30)),
       h('b', {}, 'Cet écran n’a pas pu être chargé'),
       h('p', {}, erreur.message),
       h('button', { class: 'b', onclick: () => dessiner() }, 'Réessayer')))

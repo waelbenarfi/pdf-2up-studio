@@ -11,6 +11,7 @@ import {
   pastille, optionsPersonnes, optionsSimples, icoFichier
 } from '../ui.js'
 
+import { ico } from '../icones.js'
 export async function vueSupport (params) {
   const tickets = await api.get('/tickets', { q: params.q || '' })
   const par = (cle) => tickets.filter(t => t.statut === cle)
@@ -21,33 +22,33 @@ export async function vueSupport (params) {
 
   return [
     h('div', { class: 's-grille k4' },
-      kpi({ ico: '🆕', nom: 'Nouveaux', valeur: par('nouveau').length, ton: 'info' }),
-      kpi({ ico: '🛠', nom: 'En cours', valeur: par('en_cours').length, ton: 'warn' }),
-      kpi({ ico: '✅', nom: 'Résolus', valeur: par('resolu').length, ton: 'ok' }),
-      kpi({ ico: '⏱', nom: 'Temps moyen de résolution', valeur: duree(moyenne), ton: 'violet' })),
+      kpi({ dessin: 'plus', nom: 'Nouveaux', valeur: par('nouveau').length, ton: 'info' }),
+      kpi({ dessin: 'echange', nom: 'En cours', valeur: par('en_cours').length, ton: 'warn' }),
+      kpi({ dessin: 'coche_cercle', nom: 'Résolus', valeur: par('resolu').length, ton: 'ok' }),
+      kpi({ dessin: 'horloge', nom: 'Temps moyen de résolution', valeur: duree(moyenne), ton: 'violet' })),
     carte({
       titre: `Tickets · ${tickets.length}`,
       sous: 'Un problème pendant un live ? Ouvrez un ticket, l’équipe répond dans le fil.',
       actions: [
         h('input', {
           class: 's-saisie', type: 'search', dir: 'auto', value: params.q || '',
-          placeholder: '🔎  Rechercher…', style: { width: '210px' },
+          placeholder: 'Rechercher…', style: { width: '210px' },
           onchange: (e) => aller('support', { q: e.target.value })
         }),
         h('button', { class: 'b primaire', onclick: () => ouvrirTicket({}) },
-          '＋ Nouveau ticket')
+          ico('plus', 15), 'Nouveau ticket')
       ]
     },
     tickets.length
       ? h('div', { class: 's-kanban' }, ...CONST.statutsTicket.map(statut =>
           colonne(statut, par(statut.cle))))
       : vide({
-        ico: '🎫',
+        dessin: 'billet',
         titre: 'Aucun ticket',
         texte: 'Quand une panne de son, de connexion ou de plateforme survient, '
           + 'ouvrez un ticket : le service technique le voit tout de suite.',
         action: h('button', { class: 'b primaire', onclick: () => ouvrirTicket({}) },
-          '＋ Ouvrir un ticket')
+          ico('plus', 15), 'Ouvrir un ticket')
       }))
   ]
 }
@@ -68,8 +69,14 @@ function colonne (statut, tickets) {
       h('b', {}, ticket.sujet),
       h('div', { class: 'meta' },
         h('span', {}, ticket.categorie),
-        ticket.nbMessages > 1 ? h('span', {}, `💬 ${ticket.nbMessages}`) : null,
-        ticket.fichiers.length ? h('span', {}, `📎 ${ticket.fichiers.length}`) : null),
+        ticket.nbMessages > 1
+        ? h('span', { class: 'piece' }, ico('bulle', 12),
+          String(ticket.nbMessages))
+        : null,
+        ticket.fichiers.length
+        ? h('span', { class: 'piece' }, ico('trombone', 12),
+          String(ticket.fichiers.length))
+        : null),
       h('div', { class: 'meta' },
         pastille(personneDe(ticket.demandeur_id), 'mini'),
         h('span', {}, ticket.demandeur_nom || '—'),
@@ -263,13 +270,13 @@ export async function ouvrirFil (id) {
       h('button', {
         class: 'b danger',
         onclick: () => { fermer(); supprimerTicket(ticket) }
-      }, '🗑 Supprimer'),
+      }, ico('corbeille', 15), 'Supprimer'),
       h('div', { class: 'droite' },
         h('button', { class: 'b', onclick: () => { fermer(); rafraichir() } }, 'Fermer'),
         h('button', {
           class: 'b primaire',
           onclick: () => { fermer(); ouvrirTicket({ ticket }) }
-        }, '✏️ Modifier'))
+        }, ico('crayon', 15), 'Modifier'))
     ]
   })
 }

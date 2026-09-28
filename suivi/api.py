@@ -132,6 +132,19 @@ def taches(ident):
     return ok(service.taches_de(ident))
 
 
+@suivi_bp.route("/api/suivi/lives/<int:ident>/notes", methods=["POST"])
+def commenter(ident):
+    """Un mot sur une etape : « le prof n'a pas repondu, a rappeler »."""
+    corps = _corps()
+    return ok(service.commenter(ident, corps.get("cle", ""),
+                                corps.get("texte", ""), _qui()))
+
+
+@suivi_bp.route("/api/suivi/notes/<int:ident>", methods=["DELETE"])
+def note(ident):
+    return ok(service.supprimer_note(ident, _qui()))
+
+
 @suivi_bp.route("/api/suivi/lives/<int:ident>",
                 methods=["GET", "PATCH", "PUT", "DELETE"])
 def live(ident):

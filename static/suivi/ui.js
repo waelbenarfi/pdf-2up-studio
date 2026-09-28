@@ -4,6 +4,7 @@ import {
   CONST, h, ajouter, remplir, $, etatDe, urgenceDe, statutLiveDe,
   statutTicketDe, prioriteDe, initiales, poids
 } from './noyau.js'
+import { ico, icoFichierNom } from './icones.js'
 
 /* --------------------------------------------------------------- badges */
 export const badge = (texte, ton = 'muted', icone = null) =>
@@ -11,7 +12,7 @@ export const badge = (texte, ton = 'muted', icone = null) =>
 
 export const badgeEtat = (cle) => {
   const e = etatDe(cle)
-  return badge(e.libelle, e.ton, e.icone)
+  return badge(e.libelle, e.ton, ico(e.symbole, 13))
 }
 export const badgeUrgence = (cle) => {
   const u = urgenceDe(cle)
@@ -47,7 +48,7 @@ export function carte ({ titre, sous, actions, plein = false }, ...enfants) {
     tete, ...enfants)
 }
 
-export function kpi ({ ico, nom, valeur, sous, ton = 'accent', onclic }) {
+export function kpi ({ dessin, nom, valeur, sous, ton = 'accent', onclic }) {
   const couleurs = {
     ok: 'var(--ok)', warn: 'var(--warn)', danger: 'var(--danger)',
     info: 'var(--info)', accent: 'var(--accent)', violet: 'var(--violet)'
@@ -61,15 +62,18 @@ export function kpi ({ ico, nom, valeur, sous, ton = 'accent', onclic }) {
     onkeydown: onclic ? (e) => { if (e.key === 'Enter') onclic() } : null
   },
   h('div', { class: 's-kpi-tete' },
-    h('span', { class: 's-kpi-ico' }, ico),
+    h('span', { class: 's-kpi-ico' }, ico(dessin, 18)),
     h('span', { class: 's-kpi-nom' }, nom)),
   h('div', { class: 's-kpi-val', style: { color: couleurs[ton] } }, String(valeur)),
   sous && h('div', { class: 's-kpi-sous' }, sous))
 }
 
-export function vide ({ ico = '📭', titre, texte, action }) {
+/** `dessin` est un nom du jeu d'icônes ; `ico` reste accepté par habitude. */
+export function vide (options) {
+  const { titre, texte, action } = options
+  const nom = options.dessin || options.ico || 'vide_boite'
   return h('div', { class: 's-vide' },
-    h('span', { class: 'ico' }, ico),
+    h('span', { class: 'ico' }, ico(nom, 30)),
     h('b', {}, titre),
     texte && h('p', {}, texte),
     action)
@@ -138,7 +142,7 @@ export function champEtat (refs, options = {}) {
         if (options.onchoix) options.onchoix(item.cle)
       }
     },
-    h('span', { class: 'gros' }, item.icone),
+    h('span', { class: 'gros' }, ico(item.symbole, 24)),
     h('b', {}, item.libelle),
     h('small', {}, item.aide))
     bouton.dataset.cle = item.cle
@@ -213,7 +217,7 @@ export function zoneFichiers ({ existants = [], surSuppression = null } = {}) {
       accepter([...e.dataTransfer.files])
     }
   },
-  h('span', { class: 'ico' }, '📎'),
+  h('span', { class: 'ico' }, ico('trombone')),
   h('b', {}, 'Capture d’écran, photo, vidéo ou fichier'),
   h('small', {}, `Glissez ici ou cliquez · ${CONST.tailleMaxMo} Mo maximum par fichier`),
   entree)
@@ -235,7 +239,7 @@ export function zoneFichiers ({ existants = [], surSuppression = null } = {}) {
         h('button', {
           class: 'b ico petit danger', type: 'button', title: 'Retirer',
           onclick: () => { attente.splice(index, 1); redessinerNouveaux() }
-        }, '✕'))))
+        }, ico('croix')))))
   }
 
   function redessinerAnciens () {
@@ -255,7 +259,7 @@ export function zoneFichiers ({ existants = [], surSuppression = null } = {}) {
               redessinerAnciens()
             }
           }
-        }, '✕'))))
+        }, ico('croix')))))
   }
 
   redessinerAnciens()
@@ -265,15 +269,8 @@ export function zoneFichiers ({ existants = [], surSuppression = null } = {}) {
   }
 }
 
-export function icoFichier (nom) {
-  const ext = String(nom).split('.').pop().toLowerCase()
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].includes(ext)) return '🖼️'
-  if (['mp4', 'webm', 'mov', 'mkv', 'avi'].includes(ext)) return '🎬'
-  if (ext === 'pdf') return '📕'
-  if (['xls', 'xlsx', 'csv'].includes(ext)) return '📊'
-  if (ext === 'zip') return '🗜️'
-  return '📄'
-}
+/** Le dessin qui va avec l'extension du fichier. */
+export const icoFichier = (nom, taille = 17) => ico(icoFichierNom(nom), taille)
 
 /* -------------------------------------------------------------- modales */
 export function modale ({ titre, sous, corps, actions, largeur = '' }) {
@@ -288,7 +285,7 @@ export function modale ({ titre, sous, corps, actions, largeur = '' }) {
   const boite = h('div', { class: `s-modale ${largeur}` },
     h('div', { class: 's-modale-tete' },
       h('div', {}, h('h3', {}, titre), sous && h('p', {}, sous)),
-      h('button', { class: 'b ico fermer', onclick: fermer, title: 'Fermer' }, '✕')),
+      h('button', { class: 'b ico fermer', onclick: fermer, title: 'Fermer' }, ico('croix'))),
     h('div', { class: 's-modale-corps' }, corps))
 
   if (actions) {

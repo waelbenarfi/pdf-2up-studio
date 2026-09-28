@@ -1,32 +1,56 @@
 @charset "UTF-8";
 /* ===================== 2-up Studio ===================== */
 :root {
-  --bg: #0d1017;
-  --bg-glow-1: rgba(99, 102, 241, .18);
-  --bg-glow-2: rgba(14, 165, 233, .14);
-  --surface: #151a24;
-  --surface-2: #1b2230;
-  --line: #262f3f;
-  --text: #e8edf6;
-  --muted: #8e9bb3;
-  --accent: #6f7cff;
-  --accent-2: #22d3ee;
-  --ok: #34d399;
-  --danger: #f97066;
+  /* ---- Palette Wael Academy, carte de marque officielle --------------
+     Un seul endroit porte les couleurs de la marque ; tout le reste de
+     l'application s'y branche par les jetons generiques definis dessous.
+     Le bleu 700 est LA couleur : boutons, barres, elements actifs. */
+  --wl-blue-900: #0E2440;
+  --wl-blue-800: #123A63;
+  --wl-blue-700: #17497E;
+  --wl-blue-600: #1B5A96;
+  --wl-blue-500: #2570B8;
+  --wl-blue-400: #4A90CE;
+  --wl-blue-300: #8FBEE0;
+  --wl-blue-200: #C5DDEF;
+  --wl-blue-100: #E5F1F8;
+  --wl-blue-050: #F2F8FC;
+  --wl-muted: #7C93AC;
+  --wl-line: #E1EAF3;
+  --wl-ember: #E0682F;
+  --wl-green: #2FA36B;
+
+  /* ---- Theme sombre : le navy profond de la carte de marque --------- */
+  --bg: #08182B;
+  --bg-glow-1: rgba(37, 112, 184, .20);
+  --bg-glow-2: rgba(47, 163, 107, .12);
+  --surface: #0E2440;
+  --surface-2: #143454;
+  --line: #1F4670;
+  --text: #EAF3FA;
+  --muted: #8FBEE0;
+  --accent: #4A90CE;
+  --accent-2: #2FBF9E;
+  --ok: #3FBE80;
+  --danger: #F2736B;
   --radius: 16px;
-  --shadow: 0 18px 40px rgba(0, 0, 0, .35);
+  --shadow: 0 18px 40px rgba(4, 14, 26, .45);
 }
 
 [data-theme="light"] {
-  --bg: #eef1f7;
-  --bg-glow-1: rgba(111, 124, 255, .22);
-  --bg-glow-2: rgba(34, 211, 238, .18);
+  --bg: #F2F8FC;
+  --bg-glow-1: rgba(23, 73, 126, .14);
+  --bg-glow-2: rgba(47, 163, 107, .12);
   --surface: #ffffff;
-  --surface-2: #f4f6fb;
-  --line: #dde3ee;
-  --text: #17203a;
-  --muted: #63708c;
-  --shadow: 0 14px 34px rgba(23, 32, 58, .12);
+  --surface-2: #E5F1F8;
+  --line: #D7E5F1;
+  --text: #0E2440;
+  --muted: #7C93AC;
+  --accent: #17497E;
+  --accent-2: #17A67F;
+  --ok: #2FA36B;
+  --danger: #D64545;
+  --shadow: 0 14px 34px rgba(14, 36, 64, .12);
 }
 
 * { box-sizing: border-box; }
@@ -56,13 +80,15 @@ p { margin: 0; }
   background: color-mix(in srgb, var(--bg) 82%, transparent);
 }
 .brand { display: flex; align-items: center; gap: 14px; }
+/* Le sceau de la marque, toujours blanc sur sa pastille navy. */
 .brand-mark {
-  width: 44px; height: 44px; border-radius: 13px;
-  display: grid; place-items: center;
-  font-weight: 800; font-size: 15px; letter-spacing: .5px; color: #fff;
-  background: linear-gradient(140deg, var(--accent), var(--accent-2));
-  box-shadow: 0 8px 22px rgba(111, 124, 255, .38);
+  width: 44px; height: 44px; border-radius: 13px; padding: 8px;
+  display: grid; place-items: center; color: #fff;
+  background: linear-gradient(155deg, var(--wl-blue-600) 0%,
+              var(--wl-blue-700) 45%, var(--wl-blue-900) 100%);
+  box-shadow: 0 8px 22px rgba(23, 73, 126, .38);
 }
+.brand-mark img { width: 100%; height: auto; display: block; }
 .brand h1 { font-size: 19px; letter-spacing: -.2px; }
 .brand p { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 .topbar-actions { display: flex; align-items: center; gap: 10px; }

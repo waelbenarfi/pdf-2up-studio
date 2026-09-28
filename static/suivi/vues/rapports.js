@@ -14,6 +14,7 @@ import {
 } from '../ui.js'
 import { ouvrirPersonne } from './equipe.js'
 
+import { ico } from '../icones.js'
 /* ================================================================ liste */
 export async function vueRapports (params) {
   const filtres = {
@@ -31,7 +32,7 @@ export async function vueRapports (params) {
   const refs = {}
   const barre = ligneFiltres(
     champTexte(refs, 'q', null, {
-      valeur: filtres.q, exemple: '🔎  Rechercher un cours, une description…',
+      valeur: filtres.q, exemple: 'Rechercher un cours, une description…',
       onsaisie: debounce((e) => aller('rapports', { ...filtres, q: e.target.value }), 380)
     }),
     champListe(refs, 'etat', null, optionsSimples(CONST.etats, 'Tous les états'),
@@ -53,9 +54,9 @@ export async function vueRapports (params) {
       actions: [
         h('a', {
           class: 'b', href: '/api/suivi/export/rapports.csv', download: ''
-        }, '⬇︎ Exporter (CSV)'),
+        }, ico('telecharger', 15), 'Exporter (CSV)'),
         h('button', { class: 'b primaire', onclick: () => ouvrirFormulaire() },
-          '＋ Nouveau rapport')
+          ico('plus', 15), 'Nouveau rapport')
       ]
     },
     h('div', { style: { marginBottom: '14px' } }, barre),
@@ -78,7 +79,8 @@ export async function vueRapports (params) {
           h('div', { class: 'discret' }, rapport.heure || '—')),
         h('div', {}, h('span', { class: 'principal' }, rapport.nom_live),
           rapport.fichiers.length
-            ? h('span', { class: 'discret' }, ` 📎 ${rapport.fichiers.length}`)
+            ? h('span', { class: 'discret piece' }, ico('trombone', 12),
+              String(rapport.fichiers.length))
             : null),
         h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
           pastille(personneDe(rapport.responsable_id), 'mini'),
@@ -94,16 +96,16 @@ export async function vueRapports (params) {
           h('a', {
             class: 'b ico petit', title: 'Ouvrir le PDF',
             href: `/api/suivi/rapports/${rapport.id}/pdf`, target: '_blank', rel: 'noopener'
-          }, '📄'),
-          boutonIco('✏️', 'Modifier', () => ouvrirFormulaire({ rapport })),
-          boutonIco('🗑', 'Supprimer', () => supprimer(rapport), 'danger'))
+          }, ico('fichier')),
+          boutonIco(ico('crayon'), 'Modifier', () => ouvrirFormulaire({ rapport })),
+          boutonIco(ico('corbeille'), 'Supprimer', () => supprimer(rapport), 'danger'))
       ],
       message: vide({
-        ico: '📝',
+        dessin: 'document',
         titre: 'Aucun rapport pour ces critères',
         texte: 'Chaque séance terminée doit avoir son rapport, même si tout s’est bien passé.',
         action: h('button', { class: 'b primaire', onclick: () => ouvrirFormulaire() },
-          '＋ Écrire le premier rapport')
+          ico('plus', 15), 'Écrire le premier rapport')
       })
     }))
   ]
@@ -112,7 +114,7 @@ export async function vueRapports (params) {
 /** Point 5 : les seances passees dont le rapport manque encore. */
 function blocManquants (manquants) {
   return carte({
-    titre: `⏳ ${manquants.length} séance${manquants.length > 1 ? 's' : ''} sans rapport`,
+    titre: `${manquants.length} séance${manquants.length > 1 ? 's' : ''} sans rapport`,
     sous: 'Séances déjà terminées dont le rapport n’a pas encore été envoyé.',
     actions: [h('button', {
       class: 'b', onclick: () => aller('planning', { date: manquants[0].date })
@@ -305,7 +307,7 @@ export function ouvrirFormulaire ({ rapport = null, live = null, apres = null } 
         ? h('button', {
             class: 'b danger',
             onclick: () => { fermer(); supprimer(rapport) }
-          }, '🗑 Supprimer')
+          }, ico('corbeille', 15), 'Supprimer')
         : null,
       h('div', { class: 'droite' },
         h('button', { class: 'b', onclick: fermer }, 'Annuler'),
@@ -339,7 +341,7 @@ function inviterEquipe (reprise) {
             fermer()
             ouvrirPersonne({ apres: () => reprise() })
           }
-        }, '＋ Ajouter un technicien'))
+        }, ico('plus', 15), 'Ajouter un technicien'))
     ]
   })
 }
@@ -411,7 +413,7 @@ export async function ouvrirFiche (id) {
                 href: `/api/suivi/fichier?chemin=${encodeURIComponent(fichier.chemin)}`,
                 target: '_blank', rel: 'noopener',
                 style: { textDecoration: 'none', color: 'inherit' }
-              }, h('span', { class: 'nom' }, '📎 ' + fichier.nom)))))
+              }, h('span', { class: 'nom' }, ico('trombone', 15), '' + fichier.nom)))))
         : null,
       rapport.maj_par
         ? info(`Dernière modification : ${momentDe(rapport.maj_le)} par ${rapport.maj_par}`)
@@ -420,15 +422,15 @@ export async function ouvrirFiche (id) {
       h('button', {
         class: 'b danger',
         onclick: () => { fermer(); supprimer(rapport) }
-      }, '🗑 Supprimer'),
+      }, ico('corbeille', 15), 'Supprimer'),
       h('div', { class: 'droite' },
         h('a', {
           class: 'b', href: `/api/suivi/rapports/${rapport.id}/pdf?dl=1`
-        }, '⬇︎ PDF'),
+        }, ico('telecharger', 15), 'PDF'),
         h('button', {
           class: 'b primaire',
           onclick: () => { fermer(); ouvrirFormulaire({ rapport }) }
-        }, '✏️ Modifier'))
+        }, ico('crayon', 15), 'Modifier'))
     ]
   })
 }

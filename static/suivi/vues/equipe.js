@@ -10,6 +10,7 @@ import {
   badge, pastille, boutonIco, barreProgres
 } from '../ui.js'
 
+import { ico } from '../icones.js'
 export async function vueEquipe () {
   const [personnes, bord, journal] = await Promise.all([
     api.get('/personnes'),
@@ -24,17 +25,17 @@ export async function vueEquipe () {
       sous: 'Tout le monde a le même rôle : recevoir des lives, écrire les '
         + 'rapports, ouvrir des tickets.',
       actions: [h('button', { class: 'b primaire', onclick: () => ouvrirPersonne({}) },
-        '＋ Ajouter un technicien')]
+        ico('plus', 15), 'Ajouter un technicien')]
     },
     personnes.length
       ? h('div', { class: 's-grille k3' }, ...personnes.map(personne =>
           fiche(personne, chiffres.get(personne.id))))
       : vide({
-        ico: '👥',
+        dessin: 'equipe',
         titre: 'Aucune personne enregistrée',
         texte: 'Commencez par ajouter les techniciens de live qui suivront les séances.',
         action: h('button', { class: 'b primaire', onclick: () => ouvrirPersonne({}) },
-          '＋ Ajouter un technicien')
+          ico('plus', 15), 'Ajouter un technicien')
       })),
     carte({
       titre: 'Dernières actions',
@@ -53,7 +54,7 @@ export async function vueEquipe () {
         h('span', { class: 'discret' },
           [ligne.cible, ligne.detail].filter(Boolean).join(' · ') || '—')
       ],
-      message: vide({ ico: '📋', titre: 'Journal vide' })
+      message: vide({ dessin: 'liste', titre: 'Journal vide' })
     }))
   ]
 }
@@ -84,8 +85,8 @@ function fiche (personne, chiffres) {
           class: 'b petit',
           onclick: () => { definirMoi(personne.id); rafraichir() }
         }, 'Se mettre à sa place'),
-    boutonIco('✏️', 'Modifier', () => ouvrirPersonne({ personne })),
-    boutonIco('🗑', 'Supprimer', () => supprimerPersonne(personne), 'danger')))
+    boutonIco(ico('crayon'), 'Modifier', () => ouvrirPersonne({ personne })),
+    boutonIco(ico('corbeille'), 'Supprimer', () => supprimerPersonne(personne), 'danger')))
 }
 
 /** Un taux n'a de sens que si la personne a eu des séances à suivre. */
@@ -157,7 +158,7 @@ export function ouvrirPersonne ({ personne = null, apres = null } = {}) {
         ? h('button', {
             class: 'b danger',
             onclick: () => { fermer(); supprimerPersonne(personne) }
-          }, '🗑 Supprimer')
+          }, ico('corbeille', 15), 'Supprimer')
         : null,
       h('div', { class: 'droite' },
         h('button', { class: 'b', onclick: fermer }, 'Annuler'),

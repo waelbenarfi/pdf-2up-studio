@@ -22,12 +22,17 @@ JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"
 
 # ---------------------------------------------------------------- rapports
 # Les trois etats du point 1 de la demande.
+# `icone` part dans les fichiers texte de l'archive, ou un emoji se lit tres
+# bien ; `symbole` nomme le dessin du jeu d'icones que l'interface trace.
 ETATS = [
     {"cle": "normale", "libelle": "Séance normale", "icone": "✅",
+     "symbole": "coche_cercle",
      "ton": "ok", "aide": "Tout s'est bien passé"},
     {"cle": "petit", "libelle": "Petit problème", "icone": "⚠️",
+     "symbole": "alerte",
      "ton": "warn", "aide": "Gênant mais la séance a continué"},
     {"cle": "important", "libelle": "Problème important", "icone": "❌",
+     "symbole": "croix_cercle",
      "ton": "danger", "aide": "La séance a été interrompue ou annulée"},
 ]
 
@@ -59,32 +64,34 @@ PLATEFORMES = ["Zoom", "Google Meet", "Microsoft Teams", "YouTube Live",
 # L'ordre de la liste est l'ordre d'affichage : il raconte la journee, et
 # c'est aussi l'ordre dans lequel les cases se cochent.
 MOMENTS = [
-    {"cle": "avant", "libelle": "Avant le live", "icone": "🕘", "ton": "info"},
-    {"cle": "pendant", "libelle": "Pendant le live", "icone": "🔴",
+    {"cle": "avant", "libelle": "Avant le live", "symbole": "horloge",
+     "ton": "info"},
+    {"cle": "pendant", "libelle": "Pendant le live", "symbole": "onde",
      "ton": "accent"},
-    {"cle": "apres", "libelle": "Après le live", "icone": "✅", "ton": "ok"},
+    {"cle": "apres", "libelle": "Après le live", "symbole": "coche_cercle",
+     "ton": "ok"},
 ]
 
 TACHES = [
-    {"cle": "appel_prof", "moment": "avant", "icone": "📞",
+    {"cle": "appel_prof", "moment": "avant", "symbole": "telephone",
      "libelle": "Appeler le professeur",
      "aide": "Confirmer sa présence et l'horaire de la séance"},
-    {"cle": "fichier_avant", "moment": "avant", "icone": "📥",
+    {"cle": "fichier_avant", "moment": "avant", "symbole": "recevoir",
      "libelle": "Récupérer le fichier de la séance",
      "aide": "Support de cours reçu du professeur"},
-    {"cle": "depot_avant", "moment": "avant", "icone": "⬆️",
+    {"cle": "depot_avant", "moment": "avant", "symbole": "nuage",
      "libelle": "Déposer le fichier sur le site Wael Academy",
      "aide": "Mis en ligne avant le début du live"},
-    {"cle": "ouverture", "moment": "pendant", "icone": "🎬",
+    {"cle": "ouverture", "moment": "pendant", "symbole": "lecture",
      "libelle": "Ouvrir le live",
      "aide": "Salle ouverte à l'heure prévue"},
-    {"cle": "controle", "moment": "pendant", "icone": "👁️",
+    {"cle": "controle", "moment": "pendant", "symbole": "oeil",
      "libelle": "Contrôler le live",
      "aide": "Son, image et présence surveillés pendant toute la séance"},
-    {"cle": "rapport", "moment": "apres", "icone": "📝",
+    {"cle": "rapport", "moment": "apres", "symbole": "document",
      "libelle": "Rédiger le rapport après le live",
      "aide": "Rapport envoyé une fois la séance terminée"},
-    {"cle": "depot_apres", "moment": "apres", "icone": "📤",
+    {"cle": "depot_apres", "moment": "apres", "symbole": "televerser",
      "libelle": "Déposer le fichier après le live",
      "aide": "Enregistrement ou support final mis en ligne"},
 ]
@@ -136,14 +143,14 @@ TAILLE_MAX_MO = 50
 
 # Tables videes par « Tout remettre a zero » (dans cet ordre : les enfants
 # d'abord, pour ne pas heurter les cles etrangeres).
-TABLES_DONNEES = ["messages", "fichiers", "tickets", "taches", "rapports",
-                  "lives", "personnes", "journal"]
+TABLES_DONNEES = ["messages", "fichiers", "tickets", "notes", "taches",
+                  "rapports", "lives", "personnes", "journal"]
 
 # Tables dont la cle primaire est un entier auto-incremente. `parametres` est
 # la seule a en etre depourvue : sa cle est un texte. La distinction sert a
 # savoir ou ajouter un RETURNING id sous PostgreSQL.
 TABLES_ID = ["personnes", "lives", "rapports", "fichiers", "tickets",
-             "messages", "journal", "taches"]
+             "messages", "journal", "taches", "notes"]
 
 
 DDL = """
@@ -276,10 +283,23 @@ CREATE TABLE IF NOT EXISTS taches (
   fait_par TEXT    NOT NULL DEFAULT ''
 );
 CREATE UNIQUE INDEX IF NOT EXISTS i_taches_live_cle ON taches(live_id, cle);
+
+CREATE TABLE IF NOT EXISTS notes (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  live_id INTEGER NOT NULL REFERENCES lives(id) ON DELETE CASCADE,
+  cle     TEXT    NOT NULL,
+  texte   TEXT    NOT NULL,
+  auteur  TEXT    NOT NULL DEFAULT '',
+  cree_le TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS i_notes_live_cle ON notes(live_id, cle);
 """
 
 # Consultees au demarrage pour savoir s'il reste quelque chose a creer.
-TABLES_AJOUTEES = ["taches"]
+TABLES_AJOUTEES = ["taches", "notes"]
+
+# Un commentaire est libre mais pas sans fin : au-dela, c'est un rapport.
+NOTE_MAX = 1000
 
 DDL = DDL + AJOUTS
 
@@ -324,6 +344,7 @@ def constantes():
         "taches": TACHES,
         "moments": MOMENTS,
         "tacheRapport": TACHE_RAPPORT,
+        "noteMax": NOTE_MAX,
         "fonction": FONCTION,
         "couleurs": COULEURS,
         "mois": MOIS_ACCENT,

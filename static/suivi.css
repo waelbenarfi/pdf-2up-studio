@@ -4,16 +4,23 @@
    qu'il faut pour un tableau de bord : cartes, tableaux, formulaires. */
 
 :root {
-  --warn: #f0b429;
-  --info: #38bdf8;
-  --violet: #c084fc;
-  --rose: #fb7185;
+  /* Les tons complementaires, tires de la meme carte de marque : l'ambre
+     de la marque sert d'alerte, les bleus intermediaires de reperes. */
+  --warn: #F08A4B;
+  --info: #4A90CE;
+  --violet: #2FBF9E;
+  --rose: #F2736B;
   --r-sm: 10px;
   --r-md: 14px;
   --r-lg: 20px;
   --barre: 250px;
 }
-[data-theme="light"] { --warn: #d97706; }
+[data-theme="light"] {
+  --warn: #E0682F;
+  --info: #2570B8;
+  --violet: #17A67F;
+  --rose: #D64545;
+}
 
 body.suivi { margin: 0; }
 
@@ -37,12 +44,16 @@ body.suivi { margin: 0; }
   display: flex; align-items: center; gap: 12px;
   padding: 4px 8px 18px; text-decoration: none; color: var(--text);
 }
+/* Le sceau de la marque sur sa pastille navy : le blanc du logo demande un
+   fond profond, jamais un fond clair (regle de la charte). */
 .s-logo-mark {
   width: 40px; height: 40px; border-radius: 12px; flex: none;
-  display: grid; place-items: center; font-size: 19px;
-  background: linear-gradient(140deg, var(--accent), var(--accent-2));
-  box-shadow: 0 8px 20px rgba(111, 124, 255, .35);
+  display: grid; place-items: center; padding: 7px;
+  background: linear-gradient(155deg, var(--wl-blue-600) 0%,
+              var(--wl-blue-700) 45%, var(--wl-blue-900) 100%);
+  box-shadow: 0 8px 20px rgba(23, 73, 126, .38);
 }
+.s-logo-mark img { width: 100%; height: auto; display: block; }
 .s-logo strong { display: block; font-size: 15px; letter-spacing: -.2px; }
 .s-logo span { font-size: 11.5px; color: var(--muted); }
 
@@ -64,7 +75,8 @@ body.suivi { margin: 0; }
   background: color-mix(in srgb, var(--accent) 16%, transparent);
   color: var(--text); border-color: color-mix(in srgb, var(--accent) 34%, transparent);
 }
-.s-lien-ico { width: 20px; text-align: center; font-size: 16px; flex: none; }
+.s-lien-ico { width: 20px; flex: none; display: inline-flex;
+  align-items: center; justify-content: center; }
 .s-lien-num {
   margin-left: auto; font-size: 11px; font-weight: 700; min-width: 21px;
   padding: 2px 6px; border-radius: 999px; text-align: center;
@@ -179,7 +191,7 @@ body.suivi { margin: 0; }
   background: var(--ton, var(--accent));
 }
 .s-kpi-tete { display: flex; align-items: center; gap: 8px; }
-.s-kpi-ico { font-size: 15px; }
+.s-kpi-ico { display: inline-flex; align-items: center; color: var(--ton); }
 .s-kpi-nom { font-size: 12px; color: var(--muted); font-weight: 600; }
 .s-kpi-val { font-size: 30px; font-weight: 750; letter-spacing: -1px; line-height: 1.1; }
 .s-kpi-sous { font-size: 11.5px; color: var(--muted); }
@@ -244,7 +256,7 @@ button.s-badge.clic:hover { filter: brightness(1.12); border-color: currentColor
   transition: border-color .14s, background .14s, transform .1s;
 }
 .s-choix-item:hover { transform: translateY(-2px); }
-.s-choix-item .gros { font-size: 22px; line-height: 1; }
+.s-choix-item .gros { display: inline-flex; line-height: 1; color: var(--c); }
 .s-choix-item b { font-size: 13.5px; }
 .s-choix-item small { font-size: 11.5px; color: var(--muted); }
 .s-choix-item.pris { border-color: var(--c, var(--accent));
@@ -414,8 +426,8 @@ table.s-tableau { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   border: 1px solid transparent;
 }
 .s-branche:hover { background: var(--surface-2); }
-.s-branche .fleche { width: 12px; font-size: 10px; color: var(--muted);
-  transition: transform .15s; }
+.s-branche .fleche { width: 13px; color: var(--muted); flex: none;
+  display: inline-flex; align-items: center; transition: transform .15s; }
 .s-branche.ouvert .fleche { transform: rotate(90deg); }
 .s-branche .nom { font-weight: 600; }
 .s-branche .compte { margin-left: auto; font-size: 11.5px; color: var(--muted); }
@@ -439,41 +451,88 @@ table.s-tableau { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .s-barre-progres > i { display: block; height: 100%; border-radius: 999px;
   background: var(--accent); }
 
+/* ---------------------------------------------------- icones ---------- */
+/* Traits en currentColor : une icone prend la couleur de son entourage. */
+.ic { flex: none; display: inline-block; vertical-align: -.18em; }
+/* un compteur precede de son dessin : trombone 3, bulle 2... */
+.piece { display: inline-flex; align-items: center; gap: 4px; }
+/* le dessin qui annonce un type de fichier ou de dossier */
+.genre { display: inline-flex; align-items: center; color: var(--muted); }
+.s-toast .marque { display: inline-flex; align-items: center; }
+
 /* ---------------------------------------------------- etapes ---------- */
 .s-taches { display: flex; flex-direction: column; gap: 12px; }
 .s-taches-tete { display: flex; align-items: baseline; justify-content: space-between;
   gap: 10px; font-size: 13px; }
 .s-taches-tete span { color: var(--muted); font-size: 12px; }
 .s-taches-groupe { display: flex; flex-direction: column; gap: 7px; }
-.s-taches-groupe .s-nav-titre { padding: 0; margin: 4px 0 0; }
+.s-taches-groupe .s-nav-titre { padding: 0; margin: 4px 0 0;
+  display: flex; align-items: center; gap: 7px; }
+.s-tache-bloc { display: flex; flex-direction: column; }
 
 .s-tache {
-  display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
+  display: flex; align-items: center; gap: 11px;
   padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm);
-  background: var(--surface-2); color: var(--text); font: inherit;
-  cursor: pointer; transition: border-color .14s, background .14s;
+  background: var(--surface-2); color: var(--text);
+  transition: border-color .14s, background .14s;
 }
 .s-tache:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+/* la case seule est cliquable : le reste de la ligne porte des boutons */
 .s-tache .case {
-  flex: none; width: 21px; height: 21px; border-radius: 6px;
+  flex: none; width: 22px; height: 22px; border-radius: 7px; padding: 0;
   border: 1.5px solid var(--line); display: grid; place-items: center;
-  font-size: 13px; font-weight: 700; color: transparent;
+  background: var(--surface); color: transparent; cursor: pointer;
+  font: inherit; transition: border-color .14s, background .14s;
 }
-.s-tache .ico { flex: none; font-size: 16px; }
+.s-tache .case:hover { border-color: var(--accent); }
+.s-tache .case.liee { cursor: default; border-style: dashed; }
+.s-tache .case.liee:hover { border-color: var(--line); }
+.s-tache > .ico { flex: none; color: var(--muted); display: flex; }
 .s-tache .corps { flex: 1; min-width: 0; }
 .s-tache .corps b { display: block; font-size: 13.5px; }
 .s-tache .corps small { color: var(--muted); font-size: 11.5px; }
+.s-tache .outils { display: flex; align-items: center; gap: 6px; flex: none; }
 
 .s-tache.faite { border-color: color-mix(in srgb, var(--ok) 45%, var(--line));
   background: color-mix(in srgb, var(--ok) 8%, var(--surface-2)); }
 .s-tache.faite .case { background: var(--ok); border-color: var(--ok); color: #fff; }
+.s-tache.faite > .ico { color: var(--ok); }
 .s-tache.faite .corps b { text-decoration: line-through;
   text-decoration-color: color-mix(in srgb, var(--muted) 70%, transparent); }
 
-/* l'etape du rapport se coche toute seule : rien a cliquer sur la ligne */
-.s-tache.liee { cursor: default; }
-.s-tache.liee:hover { border-color: var(--line); }
-.s-tache.liee.faite:hover { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+/* le bouton de commentaire porte son compte en pastille */
+.s-tache .outils .b.parle { color: var(--accent); position: relative; }
+.s-tache .outils .b.parle i {
+  position: absolute; top: -5px; right: -5px; font-style: normal;
+  min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px;
+  background: var(--accent); color: #fff; font-size: 9.5px; font-weight: 700;
+  display: grid; place-items: center; line-height: 1;
+}
+
+/* ------------------------------------------------- commentaires ------- */
+.s-notes {
+  display: flex; flex-direction: column; gap: 8px;
+  margin: -1px 0 0; padding: 12px;
+  border: 1px solid var(--line); border-top: none;
+  border-radius: 0 0 var(--r-sm) var(--r-sm);
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+}
+.s-note { border-left: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  padding: 2px 0 2px 10px; }
+.s-note .haut { display: flex; align-items: center; gap: 8px; }
+.s-note .haut b { font-size: 12.5px; }
+.s-note .haut span { font-size: 11px; color: var(--muted); flex: 1; }
+.s-note p { margin: 2px 0 0; font-size: 13px; line-height: 1.5;
+  white-space: pre-wrap; overflow-wrap: anywhere; }
+.s-notes-vide { margin: 0; font-size: 12px; color: var(--muted); font-style: italic; }
+.s-note-saisie { display: flex; gap: 8px; align-items: flex-end; }
+.s-note-saisie textarea {
+  flex: 1; min-width: 0; resize: vertical; font: inherit; font-size: 13px;
+  padding: 8px 10px; border-radius: var(--r-sm);
+  border: 1px solid var(--line); background: var(--surface); color: var(--text);
+}
+.s-note-saisie textarea:focus { outline: none; border-color: var(--accent); }
+.s-note-saisie .b { flex: none; }
 
 /* ---------------------------------------------------- modale ---------- */
 .s-voile {

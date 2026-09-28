@@ -139,6 +139,19 @@ tableau de bord pourrait annoncer un rapport qui n'existe pas. Le bouton au
 bout de la ligne ouvre le formulaire — **Rédiger** tant que le rapport
 n'existe pas, **Modifier** ensuite.
 
+**Rien n'est enregistré avant « Valider ».** Un clic sur une case note
+l'intention : la ligne passe en pointillé, son sous-titre devient *à
+valider*, et la barre de progression montre déjà le résultat visé. Le pied
+de la fenêtre compte les modifications en attente et propose **Annuler** ou
+**Valider (n)**. Une étape ramenée à son état d'origine sort du compte — un
+aller-retour ne compte pas pour une modification.
+
+La validation part en **un seul appel**, vérifié entièrement avant d'écrire
+quoi que ce soit : une étape inconnue dans la fournée fait tout refuser, et
+rien n'est écrit à moitié. Le journal garde une ligne par validation, pas
+une par case. Fermer la fenêtre avec des cases en attente — par le bouton,
+la croix, la touche `Échap` ou un clic à côté — demande confirmation.
+
 #### Commentaires sur une étape
 
 Chaque étape a son propre fil de commentaires, ouvert par la bulle à droite

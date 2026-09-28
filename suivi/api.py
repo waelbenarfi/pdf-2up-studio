@@ -124,9 +124,17 @@ def repartir():
 
 @suivi_bp.route("/api/suivi/lives/<int:ident>/taches", methods=["GET", "PATCH"])
 def taches(ident):
-    """Les etapes d'une seance : appel du prof, fichiers, live, rapport."""
+    """Les etapes d'une seance : appel du prof, fichiers, live, rapport.
+
+    Le PATCH accepte une seule case (`cle` + `fait`) ou toute une fournee
+    (`changements`), selon que l'appel vient d'un clic isole ou du bouton
+    Valider de l'ecran.
+    """
     if request.method == "PATCH":
         corps = _corps()
+        if "changements" in corps:
+            return ok(service.basculer_taches(ident, corps["changements"],
+                                              _qui()))
         return ok(service.basculer_tache(ident, corps.get("cle", ""),
                                          bool(corps.get("fait")), _qui()))
     return ok(service.taches_de(ident))

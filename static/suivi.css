@@ -611,6 +611,32 @@ table.s-tableau { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .s-tache.faite .corps b { text-decoration: line-through;
   text-decoration-color: color-mix(in srgb, var(--muted) 70%, transparent); }
 
+/* Une case touchée mais pas encore validée : un liseré pointillé et un
+   repère à gauche. Sans ce signal, le bouton « Valider » aurait l'air de
+   réclamer quelque chose qu'on a déjà fait. */
+.s-tache.change {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.s-tache.change::before {
+  content: ""; position: absolute; left: -1px; top: 8px; bottom: 8px;
+  width: 3px; border-radius: 999px; background: var(--accent);
+}
+.s-tache { position: relative; }
+.s-tache.change .corps small { color: var(--accent); font-weight: 600; }
+.s-tache.change.faite { border-color: color-mix(in srgb, var(--ok) 55%, var(--line)); }
+.s-tache.change.faite::before { background: var(--ok); }
+.s-tache.change.faite .corps small { color: var(--ok); }
+
+/* pied de la fenêtre des étapes : le compte en attente à gauche */
+.s-taches-pied { display: flex; align-items: center; gap: 12px; width: 100%; }
+.s-taches-pied .droite { margin-left: auto; display: flex; gap: 8px; }
+.s-taches-attente {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: var(--accent);
+}
+
 /* le bouton de commentaire porte son compte en pastille */
 .s-tache .outils .b.parle { color: var(--accent); position: relative; }
 .s-tache .outils .b.parle i {

@@ -329,10 +329,8 @@ def _poser_tache(live_id, cle, fait, par=""):
         db.inserer("taches", champs)
 
 
-def basculer_tache(live_id, cle, fait, par=""):
-    seance = db.un("SELECT * FROM lives WHERE id = ?", (live_id,))
-    if not seance:
-        raise Refus("Live introuvable.")
+def _verifier_etape(cle):
+    """Renvoie l'etape, ou refuse. Aucune ecriture ici."""
     if cle not in schema.CLES_TACHES:
         raise Refus("Étape inconnue : %s." % cle)
     etape = next(item for item in schema.TACHES if item["cle"] == cle)
@@ -342,10 +340,44 @@ def basculer_tache(live_id, cle, fait, par=""):
     if cle == schema.TACHE_RAPPORT:
         raise Refus("« %s » se coche toute seule quand le rapport part. "
                     "Utilisez le bouton Rapport." % etape["libelle"])
+    return etape
 
-    _poser_tache(live_id, cle, fait, par)
-    journaliser("Étape %s" % ("faite" if fait else "rouverte"),
-                seance["titre"], etape["libelle"], par)
+
+def basculer_tache(live_id, cle, fait, par=""):
+    return basculer_taches(live_id, [{"cle": cle, "fait": fait}], par)
+
+
+def basculer_taches(live_id, changements, par=""):
+    """Valide plusieurs cases d'un coup.
+
+    L'ecran retient les clics puis envoie tout a la validation : un seul
+    aller-retour, et surtout un seul instant ou la base change. Tout est
+    donc verifie AVANT d'ecrire quoi que ce soit — sinon une etape inconnue
+    en fin de liste laisserait les precedentes ecrites et l'utilisateur
+    devant un refus, sans savoir ce qui a ete retenu.
+    """
+    seance = db.un("SELECT * FROM lives WHERE id = ?", (live_id,))
+    if not seance:
+        raise Refus("Live introuvable.")
+    if not isinstance(changements, (list, tuple)) or not changements:
+        raise Refus("Aucune modification à valider.")
+
+    retenus, vues = [], set()
+    for item in changements:
+        cle = str((item or {}).get("cle") or "")
+        if cle in vues:
+            raise Refus("L'étape « %s » est demandée deux fois." % cle)
+        vues.add(cle)
+        retenus.append((_verifier_etape(cle), bool((item or {}).get("fait"))))
+
+    for etape, fait in retenus:
+        _poser_tache(live_id, etape["cle"], fait, par)
+
+    detail = ", ".join("%s %s" % (etape["libelle"],
+                                  "faite" if fait else "rouverte")
+                       for etape, fait in retenus)
+    journaliser("%d étape(s) mise(s) à jour" % len(retenus),
+                seance["titre"], detail, par)
     return {"live": live(live_id), "taches": taches_de(live_id)}
 
 

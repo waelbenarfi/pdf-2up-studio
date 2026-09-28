@@ -289,11 +289,23 @@ export function zoneFichiers ({ existants = [], surSuppression = null } = {}) {
 export const icoFichier = (nom, taille = 17) => ico(icoFichierNom(nom), taille)
 
 /* -------------------------------------------------------------- modales */
-export function modale ({ titre, sous, corps, actions, largeur = '' }) {
+/**
+ * `avantFermeture` permet à une fenêtre de retenir sa propre fermeture —
+ * elle reçoit la fermeture réelle et renvoie `false` pour la suspendre, le
+ * temps de demander confirmation. Sans elle, la croix, la touche Échap et le
+ * clic sur le voile contourneraient la garde et des modifications non
+ * validées disparaîtraient sans un mot.
+ */
+export function modale ({ titre, sous, corps, actions, largeur = '',
+  avantFermeture = null }) {
   const voile = h('div', { class: 's-voile' })
-  const fermer = () => {
+  const fermerForce = () => {
     voile.remove()
     document.removeEventListener('keydown', surTouche)
+  }
+  const fermer = () => {
+    if (avantFermeture && avantFermeture(fermerForce) === false) return
+    fermerForce()
   }
   const surTouche = (e) => { if (e.key === 'Escape') fermer() }
   document.addEventListener('keydown', surTouche)
@@ -313,7 +325,7 @@ export function modale ({ titre, sous, corps, actions, largeur = '' }) {
   $('#calques').append(voile)
   const premier = boite.querySelector('input, textarea, select')
   if (premier) setTimeout(() => premier.focus(), 40)
-  return { fermer, boite }
+  return { fermer, fermerForce, boite }
 }
 
 export function confirmer ({ titre, texte, bouton = 'Supprimer', surOui }) {

@@ -344,7 +344,7 @@ COLONNES = {
     ],
     "lives": [
         ("date", "Date"), ("heure", "Heure"), ("heure_fin", "Fin"),
-        ("titre", "Live / classe"), ("formateur", "Formateur"),
+        ("titre", "Live / classe"), ("formateur", "Professeur"),
         ("plateforme", "Plateforme"), ("responsable_nom", "Responsable"),
         ("statut", "Statut"), ("rapport_reference", "Rapport"),
         ("tachesFaites", "Étapes faites"), ("tachesTotal", "Étapes au total"),

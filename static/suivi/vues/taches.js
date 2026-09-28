@@ -11,7 +11,7 @@ import {
 } from '../noyau.js'
 import { modale, badge, barreProgres, boutonIco, confirmer } from '../ui.js'
 import { ico } from '../icones.js'
-import { ouvrirFormulaire } from './rapports.js'
+import { ouvrirRapportDe } from './rapports.js'
 
 const MOMENTS = CONST.moments || []
 export const TOTAL = (CONST.taches || []).length
@@ -22,7 +22,9 @@ const compte = (live) => ({
   notes: live.nbNotes || 0
 })
 
-const ton = (faites, total) => faites >= total ? 'ok' : (faites ? 'warn' : 'muted')
+// Une séance en cours de préparation n'est pas une alerte : l'orange est
+// réservé aux vrais problèmes, un avancement partiel reste dans le bleu.
+const ton = (faites, total) => faites >= total ? 'ok' : (faites ? 'accent' : 'muted')
 
 /** Étiquette « 3/7 », muette : pour une colonne de tableau. */
 export function badgeTaches (live) {
@@ -170,11 +172,13 @@ export function ouvrirTaches (live, apres = null) {
             dessiner()
           }
         }, ico('bulle'), nb ? h('i', {}, String(nb)) : null),
-        liee && !etape.fait
+        // rapport envoyé ou non, on y accède d'ici : le corriger après coup
+        // est au moins aussi fréquent que l'écrire
+        liee
           ? h('button', {
-            class: 'b primaire petit',
-            onclick: () => { fermer(); ouvrirFormulaire({ live, apres: terminer }) }
-          }, 'Rédiger')
+            class: `b petit ${etape.fait ? '' : 'primaire'}`,
+            onclick: () => { fermer(); ouvrirRapportDe(live, terminer) }
+          }, etape.fait ? 'Modifier' : 'Rédiger')
           : null))
   }
 

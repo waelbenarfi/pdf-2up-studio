@@ -6,15 +6,21 @@
 :root {
   /* Les tons complementaires, tires de la meme carte de marque : l'ambre
      de la marque sert d'alerte, les bleus intermediaires de reperes. */
-  --warn: #F08A4B;
-  --info: #4A90CE;
+  --warn: #F09A5B;
+  --info: #5AA0DC;
   --violet: #2FBF9E;
   --rose: #F2736B;
   --r-sm: 10px;
   --r-md: 14px;
-  --r-lg: 20px;
+  --r-lg: 18px;
   --barre: 250px;
+  /* une ombre a peine posee : elle detache les cartes du fond sans les
+     faire flotter. En thème sombre elle disparait, le contraste suffit. */
+  --ombre-carte: 0 1px 2px rgba(14, 36, 64, .04),
+                 0 4px 14px rgba(14, 36, 64, .05);
 }
+/* Sur fond noir une ombre ne se voit pas : le contraste suffit a detacher. */
+[data-theme="dark"] { --ombre-carte: none; }
 [data-theme="light"] {
   --warn: #E0682F;
   --info: #2570B8;
@@ -63,18 +69,26 @@ body.suivi { margin: 0; }
   color: var(--muted); padding: 16px 10px 6px; font-weight: 700;
 }
 .s-lien {
-  display: flex; align-items: center; gap: 11px;
-  padding: 10px 11px; border-radius: var(--r-sm);
-  color: var(--muted); text-decoration: none; font-size: 14px;
+  display: flex; align-items: center; gap: 11px; position: relative;
+  padding: 9px 11px; border-radius: var(--r-sm);
+  color: var(--muted); text-decoration: none; font-size: 13.5px;
   font-weight: 550; border: 1px solid transparent; cursor: pointer;
   background: none; width: 100%; text-align: left; font-family: inherit;
   transition: background .14s, color .14s;
 }
 .s-lien:hover { background: var(--surface-2); color: var(--text); }
+/* L'ecran courant est marque par un filet a gauche, pas par un cadre :
+   sept cadres empiles font une liste de boutons, pas une navigation. */
 .s-lien.actif {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: var(--text); border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+  background: color-mix(in srgb, var(--accent) 11%, transparent);
+  color: var(--text); font-weight: 650;
 }
+.s-lien.actif::before {
+  content: ""; position: absolute; left: 0; top: 50%;
+  transform: translateY(-50%); width: 3px; height: 17px; border-radius: 999px;
+  background: var(--accent);
+}
+.s-lien.actif .s-lien-ico { color: var(--accent); }
 .s-lien-ico { width: 20px; flex: none; display: inline-flex;
   align-items: center; justify-content: center; }
 .s-lien-num {
@@ -98,12 +112,12 @@ body.suivi { margin: 0; }
 /* ---------------------------------------------------- en-tete --------- */
 .s-haut {
   display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  padding: 16px 28px; border-bottom: 1px solid var(--line);
+  padding: 15px 28px; border-bottom: 1px solid var(--line);
   position: sticky; top: 0; z-index: 20;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(10px);
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(12px);
 }
-.s-haut h1 { font-size: 20px; letter-spacing: -.3px; }
+.s-haut h1 { font-size: 19px; letter-spacing: -.35px; font-weight: 700; }
 .s-haut p { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 .s-haut-actions { margin-left: auto; display: flex; align-items: center; gap: 9px; }
 
@@ -127,27 +141,35 @@ body.suivi { margin: 0; }
 
 /* ---------------------------------------------------- boutons --------- */
 .b {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 10px 16px; border-radius: var(--r-sm); border: 1px solid var(--line);
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 9px 15px; border-radius: var(--r-sm); border: 1px solid var(--line);
   background: var(--surface); color: var(--text);
   font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
-  text-decoration: none; transition: transform .1s, border-color .14s, background .14s;
-  white-space: nowrap;
+  text-decoration: none; white-space: nowrap;
+  transition: border-color .14s, background .14s, box-shadow .14s;
 }
-.b:hover { border-color: var(--accent); }
-.b:active { transform: translateY(1px); }
-.b:disabled { opacity: .5; cursor: not-allowed; }
+.b:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  background: var(--surface-2); }
+.b:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.b:disabled { opacity: .45; cursor: not-allowed; }
+.b:disabled:hover { border-color: var(--line); background: var(--surface); }
+
+/* Un aplat de la couleur de marque, sans degrade : la charte demande le
+   bleu 700 pour les boutons, et un degrade le ferait virer au vert. */
 .b.primaire {
-  border: none; color: #fff;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  box-shadow: 0 10px 22px rgba(111, 124, 255, .3);
+  border-color: transparent; color: #fff; background: var(--accent);
+  box-shadow: 0 1px 2px rgba(14, 36, 64, .28);
 }
-.b.primaire:hover { filter: brightness(1.06); }
+.b.primaire:hover { background: var(--accent-fonce); border-color: transparent;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 35%, transparent); }
 .b.danger { color: var(--danger); }
-.b.danger:hover { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
-.b.plein-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
-.b.petit { padding: 6px 11px; font-size: 12.5px; border-radius: 8px; }
-.b.ico { padding: 7px 9px; font-size: 14px; line-height: 1; }
+.b.danger:hover { border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.b.plein-danger { background: var(--danger); border-color: transparent; color: #fff; }
+.b.plein-danger:hover { background: var(--danger); filter: brightness(1.07); }
+.b.petit { padding: 6px 11px; font-size: 12.5px; border-radius: 9px; }
+.b.ico { padding: 8px; line-height: 1; }
+.b.ico.petit { padding: 6px; }
 .b.large { width: 100%; }
 
 .b-groupe { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -155,14 +177,16 @@ body.suivi { margin: 0; }
 /* ---------------------------------------------------- cartes ---------- */
 .s-carte {
   background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--r-lg); padding: 20px;
+  border-radius: var(--r-lg); padding: 20px 22px;
+  box-shadow: var(--ombre-carte);
 }
 .s-carte-tete {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  margin-bottom: 16px;
+  margin-bottom: 16px; padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
 }
-.s-carte-tete h2 { font-size: 15.5px; }
-.s-carte-tete p { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.s-carte-tete h2 { font-size: 15px; font-weight: 700; letter-spacing: -.15px; }
+.s-carte-tete p { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
 .s-carte-tete .b-groupe { margin-left: auto; }
 
 .s-grille { display: grid; gap: 16px; }
@@ -178,33 +202,48 @@ body.suivi { margin: 0; }
 }
 
 /* ---------------------------------------------------- indicateurs ----- */
+/* L'icone est posee dans une pastille teintee de la couleur du chiffre :
+   un trait seul, perdu dans le blanc, se lit comme un oubli. */
 .s-kpi {
   background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--r-md); padding: 16px 18px; position: relative;
-  overflow: hidden; display: flex; flex-direction: column; gap: 4px;
-  cursor: default;
+  border-radius: var(--r-md); padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 3px; cursor: default;
+  box-shadow: var(--ombre-carte);
 }
-.s-kpi.clic { cursor: pointer; transition: border-color .14s, transform .12s; }
-.s-kpi.clic:hover { border-color: var(--accent); transform: translateY(-2px); }
-.s-kpi::after {
-  content: ""; position: absolute; inset: 0 auto 0 0; width: 4px;
-  background: var(--ton, var(--accent));
+.s-kpi.clic { cursor: pointer;
+  transition: border-color .14s, box-shadow .16s, transform .12s; }
+.s-kpi.clic:hover {
+  border-color: color-mix(in srgb, var(--ton) 45%, var(--line));
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--ton) 16%, transparent);
+  transform: translateY(-2px);
 }
-.s-kpi-tete { display: flex; align-items: center; gap: 8px; }
-.s-kpi-ico { display: inline-flex; align-items: center; color: var(--ton); }
-.s-kpi-nom { font-size: 12px; color: var(--muted); font-weight: 600; }
-.s-kpi-val { font-size: 30px; font-weight: 750; letter-spacing: -1px; line-height: 1.1; }
+.s-kpi.clic:focus-visible { outline: 2px solid var(--ton); outline-offset: 2px; }
+.s-kpi-tete { display: flex; align-items: center; gap: 9px; margin-bottom: 5px; }
+.s-kpi-ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 9px; flex: none;
+  color: var(--ton);
+  background: color-mix(in srgb, var(--ton) 13%, transparent);
+}
+.s-kpi-nom { font-size: 12px; color: var(--muted); font-weight: 600;
+  line-height: 1.3; }
+.s-kpi-val { font-size: 29px; font-weight: 750; letter-spacing: -1px;
+  line-height: 1.1; font-variant-numeric: tabular-nums; }
 .s-kpi-sous { font-size: 11.5px; color: var(--muted); }
 
 /* ---------------------------------------------------- badges ---------- */
 .s-badge {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 650;
-  border: 1px solid transparent; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 7px; font-size: 11px; font-weight: 650;
+  border: 1px solid transparent; white-space: nowrap; line-height: 1.5;
+  letter-spacing: .1px;
 }
 /* variante cliquable : meme pastille, mais elle ouvre quelque chose */
-button.s-badge.clic { font-family: inherit; cursor: pointer; }
-button.s-badge.clic:hover { filter: brightness(1.12); border-color: currentColor; }
+button.s-badge.clic { font-family: inherit; cursor: pointer;
+  transition: background .14s, border-color .14s; }
+button.s-badge.clic:hover { border-color: currentColor; }
+button.s-badge.clic:focus-visible { outline: 2px solid currentColor;
+  outline-offset: 1px; }
 .t-ok     { color: var(--ok);     background: color-mix(in srgb, var(--ok) 15%, transparent);     border-color: color-mix(in srgb, var(--ok) 30%, transparent); }
 .t-warn   { color: var(--warn);   background: color-mix(in srgb, var(--warn) 16%, transparent);   border-color: color-mix(in srgb, var(--warn) 32%, transparent); }
 .t-danger { color: var(--danger); background: color-mix(in srgb, var(--danger) 15%, transparent); border-color: color-mix(in srgb, var(--danger) 30%, transparent); }
@@ -312,9 +351,18 @@ table.s-tableau { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .s-tableau tbody tr { transition: background .12s; }
 .s-tableau tbody tr:hover { background: var(--surface-2); }
 .s-tableau .actions { text-align: right; white-space: nowrap; }
-.s-tableau .actions .b-groupe { flex-wrap: nowrap; }
-.s-tableau .actions .b { opacity: .35; }
-.s-tableau tr:hover .actions .b { opacity: 1; }
+.s-tableau .actions .b-groupe { flex-wrap: nowrap; justify-content: flex-end; }
+/* Des icones discretes plutot que des boutons a moitie effaces : a 35 %
+   d'opacite elles passaient pour un affichage rate. */
+.s-tableau .actions .b.ico {
+  border-color: transparent; background: none; color: var(--muted);
+}
+.s-tableau .actions .b.ico:hover {
+  color: var(--accent); background: var(--surface-2);
+  border-color: var(--line);
+}
+.s-tableau .actions .b.ico.danger:hover { color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--line)); }
 .s-tableau .principal { font-weight: 620; }
 .s-tableau .discret { color: var(--muted); font-size: 12.5px; }
 .s-tableau .clicable { cursor: pointer; }
@@ -325,19 +373,23 @@ table.s-tableau { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 
 /* ---------------------------------------------------- listes ---------- */
 .s-liste { display: flex; flex-direction: column; gap: 10px; }
+/* Une seule ligne : le titre s'accommode, les pastilles restent a droite.
+   En autorisant le retour a la ligne, un titre un peu long renvoyait les
+   pastilles en dessous et chaque ligne prenait une hauteur differente. */
 .s-item {
-  display: flex; align-items: center; gap: 13px; padding: 13px 15px;
+  display: flex; align-items: center; gap: 12px; padding: 11px 14px;
   border: 1px solid var(--line); border-radius: var(--r-md);
-  background: var(--surface); transition: border-color .14s; flex-wrap: wrap;
+  background: var(--surface); transition: border-color .14s;
 }
 .s-item:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
-.s-item .corps { flex: 1 1 170px; min-width: 0; }
-.s-item .corps b { display: block; font-size: 14px; }
-.s-item .corps small { color: var(--muted); font-size: 12px; }
-.s-item .droite { display: flex; align-items: center; gap: 8px;
-  flex: 0 0 auto; margin-left: auto; flex-wrap: wrap; }
-.s-item.alerte { border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
-  background: color-mix(in srgb, var(--danger) 7%, var(--surface)); }
+.s-item .corps { flex: 1 1 auto; min-width: 0; }
+.s-item .corps b { display: block; font-size: 13.5px; line-height: 1.35;
+  letter-spacing: -.1px; }
+.s-item .corps small { color: var(--muted); font-size: 12px; display: block;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.s-item .droite { display: flex; align-items: center; gap: 7px; flex: none; }
+.s-item.alerte { border-color: color-mix(in srgb, var(--danger) 35%, var(--line));
+  background: color-mix(in srgb, var(--danger) 5%, var(--surface)); }
 .s-heure {
   font-family: ui-monospace, Consolas, monospace; font-size: 13px;
   font-weight: 700; padding: 6px 9px; border-radius: 8px;
@@ -345,10 +397,18 @@ table.s-tableau { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 }
 
 .s-vide {
-  text-align: center; padding: 46px 20px; color: var(--muted);
+  text-align: center; padding: 40px 20px; color: var(--muted);
   border: 1px dashed var(--line); border-radius: var(--r-md);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
 }
-.s-vide .ico { font-size: 34px; display: block; margin-bottom: 10px; opacity: .8; }
+/* le dessin dans un disque teinte : un trait nu au milieu du vide se lit
+   comme une image qui n'a pas charge */
+.s-vide .ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 54px; height: 54px; border-radius: 50%; margin-bottom: 8px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
 .s-vide b { display: block; color: var(--text); font-size: 15px; margin-bottom: 5px; }
 .s-vide p { font-size: 13px; max-width: 420px; margin: 0 auto 14px; line-height: 1.6; }
 
@@ -356,15 +416,20 @@ table.s-tableau { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .s-colonnes { display: grid; gap: 14px; align-items: start;
   grid-template-columns: repeat(auto-fill, minmax(212px, 1fr)); }
 .s-colonne {
-  border: 1px solid var(--line); border-radius: var(--r-md);
-  background: var(--surface); display: flex; flex-direction: column;
-  min-height: 150px;
+  border: 1px solid var(--line); border-radius: var(--r-lg);
+  background: var(--surface-2); display: flex; flex-direction: column;
+  min-height: 150px; transition: border-color .14s, background .14s;
 }
 .s-colonne-tete {
-  display: flex; align-items: center; gap: 10px; padding: 13px 14px;
-  border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+  border-bottom: 1px solid var(--line); background: var(--surface);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
 }
-.s-colonne-tete b { font-size: 13.5px; }
+/* le nom ne passe pas a la ligne : sinon chaque colonne commence a une
+   hauteur differente et la rangee de cartes se desaligne */
+.s-colonne-tete > div { min-width: 0; }
+.s-colonne-tete b { font-size: 13px; line-height: 1.35; letter-spacing: -.1px;
+  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .s-colonne-tete small { display: block; font-size: 11.5px; color: var(--muted); }
 .s-colonne-corps { padding: 11px; display: flex; flex-direction: column;
   gap: 9px; flex: 1; }
@@ -374,18 +439,34 @@ table.s-tableau { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   padding: 20px 6px; border: 1px dashed var(--line); border-radius: var(--r-sm); }
 
 .s-jeton {
-  border: 1px solid var(--line); border-radius: var(--r-sm); padding: 10px 12px;
-  background: var(--surface-2); cursor: grab; position: relative;
+  border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 12px;
+  background: var(--surface); cursor: grab; position: relative;
+  transition: border-color .14s, box-shadow .16s;
 }
+.s-jeton:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  box-shadow: var(--ombre-carte); }
 .s-jeton:active { cursor: grabbing; }
 .s-jeton.porte { opacity: .4; }
-.s-jeton b { font-size: 13px; display: block; }
-.s-jeton small { font-size: 11.5px; color: var(--muted); }
+.s-jeton b { font-size: 13px; display: block; line-height: 1.35;
+  letter-spacing: -.1px; }
+.s-jeton small { font-size: 11.5px; color: var(--muted); min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .s-jeton .bandeau { display: flex; align-items: center; gap: 7px;
-  margin-bottom: 5px; flex-wrap: wrap; padding-right: 54px; }
-.s-jeton .outils { position: absolute; top: 7px; right: 7px; display: flex;
-  gap: 4px; opacity: 0; transition: opacity .14s; }
-.s-jeton:hover .outils { opacity: 1; }
+  margin-bottom: 6px; padding-right: 30px; }
+/* le badge d'etat prend la place qui reste, l'heure garde la sienne */
+.s-jeton .bandeau .s-badge { margin-left: auto; }
+.s-jeton .pied { display: flex; align-items: center; gap: 8px;
+  margin-top: 7px; }
+.s-jeton .pied > .s-badge, .s-jeton .pied > button { margin-left: auto; }
+
+/* Les outils n'apparaissent qu'au survol, sur un fond qui les detache du
+   texte qu'ils recouvrent. */
+.s-jeton .outils {
+  position: absolute; top: 6px; right: 6px; display: flex; gap: 3px;
+  opacity: 0; transition: opacity .14s; border-radius: 9px;
+  background: var(--surface); box-shadow: 0 0 0 4px var(--surface);
+}
+.s-jeton:hover .outils, .s-jeton:focus-within .outils { opacity: 1; }
 
 /* ---------------------------------------------------- kanban ---------- */
 .s-kanban { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -451,6 +532,28 @@ table.s-tableau { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .s-barre-progres > i { display: block; height: 100%; border-radius: 999px;
   background: var(--accent); }
 
+/* ------------------------------------------------ blocs de formulaire - */
+.s-blocs { display: flex; flex-direction: column; gap: 14px; }
+.s-bloc {
+  border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--surface-2); overflow: hidden;
+}
+.s-bloc-tete {
+  display: flex; align-items: center; gap: 9px;
+  padding: 11px 14px; border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.s-bloc-tete b { font-size: 13px; letter-spacing: -.1px; }
+.s-bloc-tete small { font-size: 11.5px; color: var(--muted); margin-left: auto; }
+.s-bloc-ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 8px; flex: none;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.s-bloc-corps { padding: 14px; display: flex; flex-direction: column; gap: 13px; }
+.s-bloc-corps > .s-info:first-child { margin-top: 0; }
+
 /* ---------------------------------------------------- icones ---------- */
 /* Traits en currentColor : une icone prend la couleur de son entourage. */
 .ic { flex: none; display: inline-block; vertical-align: -.18em; }
@@ -473,7 +576,7 @@ table.s-tableau { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .s-tache {
   display: flex; align-items: center; gap: 11px;
   padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm);
-  background: var(--surface-2); color: var(--text);
+  background: var(--surface); color: var(--text);
   transition: border-color .14s, background .14s;
 }
 .s-tache:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
@@ -487,16 +590,24 @@ table.s-tableau { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .s-tache .case:hover { border-color: var(--accent); }
 .s-tache .case.liee { cursor: default; border-style: dashed; }
 .s-tache .case.liee:hover { border-color: var(--line); }
-.s-tache > .ico { flex: none; color: var(--muted); display: flex; }
+/* chaque etape porte son dessin dans une pastille : la liste se parcourt
+   par l'image avant de se lire */
+.s-tache > .ico {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 9px;
+  color: var(--accent); background: var(--surface-2);
+  transition: color .14s, background .14s;
+}
 .s-tache .corps { flex: 1; min-width: 0; }
 .s-tache .corps b { display: block; font-size: 13.5px; }
 .s-tache .corps small { color: var(--muted); font-size: 11.5px; }
 .s-tache .outils { display: flex; align-items: center; gap: 6px; flex: none; }
 
-.s-tache.faite { border-color: color-mix(in srgb, var(--ok) 45%, var(--line));
-  background: color-mix(in srgb, var(--ok) 8%, var(--surface-2)); }
+.s-tache.faite { border-color: color-mix(in srgb, var(--ok) 40%, var(--line));
+  background: color-mix(in srgb, var(--ok) 7%, var(--surface)); }
 .s-tache.faite .case { background: var(--ok); border-color: var(--ok); color: #fff; }
-.s-tache.faite > .ico { color: var(--ok); }
+.s-tache.faite > .ico { color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 15%, transparent); }
 .s-tache.faite .corps b { text-decoration: line-through;
   text-decoration-color: color-mix(in srgb, var(--muted) 70%, transparent); }
 

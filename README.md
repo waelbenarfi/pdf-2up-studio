@@ -4,7 +4,7 @@ Application locale à deux fonctions, servies par le même serveur :
 
 1. **Outil 2-up** (`/`) — deux pages paysage sur chaque feuille portrait, avec
    suppression automatique des pages vides et remplacement de la première page.
-2. **Suivi des lives** (`/operations`) — rapport obligatoire après chaque
+2. **Espace technique** (`/operations`) — rapport obligatoire après chaque
    séance, étapes à cocher pour chaque live (appel du professeur, fichiers,
    ouverture, contrôle) avec un fil de commentaires par étape, classement
    automatique des dossiers par mois, planification, support technique et
@@ -54,13 +54,13 @@ empilée deux fois : aucune bande blanche, aucune déformation.
 | `app.py` | serveur Flask, port 1200, API upload / assemblage / analyse / génération / téléchargement |
 | `core.py` | traitement PDF : fusion, détection des pages vides, imposition, vignettes |
 | `templates/index.html` | interface de l'outil 2-up |
-| `static/style.css` | palette Wael Academy + thème clair / sombre (partagé avec le Suivi des lives) |
+| `static/style.css` | palette Wael Academy + thème clair / sombre (partagé avec l'Espace technique) |
 | `static/wael/` | emblème et marque Wael Academy (SVG en `currentColor`) |
 | `static/app.js` | logique de l'interface 2-up |
-| `suivi/` | Suivi des lives : base SQLite, règles, API, PDF, archive |
-| `templates/suivi.html`, `static/suivi.css`, `static/suivi/` | interface du Suivi des lives |
+| `suivi/` | Espace technique : base SQLite, règles, API, PDF, archive |
+| `templates/suivi.html`, `static/suivi.css`, `static/suivi/` | interface de l'Espace technique |
 | `static/suivi/icones.js` | jeu d'icônes tracées, à la place des émojis |
-| `donnees-suivi/` | base et archives du Suivi des lives (créé au 1er démarrage) |
+| `donnees-suivi/` | base et archives de l'Espace technique (créé au 1er démarrage) |
 
 Les fichiers envoyés sont stockés dans `%TEMP%\pdf-2up-studio` et purgés
 automatiquement au bout de 6 heures (ou en cliquant sur « Nouveau document »).
@@ -75,7 +75,7 @@ fonction *serverless*.
 
 ### Base de données
 
-Le Suivi des lives fonctionne sur **deux moteurs**, choisis à l'exécution :
+L'Espace technique fonctionne sur **deux moteurs**, choisis à l'exécution :
 
 | `DATABASE_URL` | moteur | usage |
 |---|---|---|

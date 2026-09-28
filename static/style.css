@@ -20,21 +20,25 @@
   --wl-ember: #E0682F;
   --wl-green: #2FA36B;
 
-  /* ---- Theme sombre : le navy profond de la carte de marque --------- */
-  --bg: #08182B;
-  --bg-glow-1: rgba(37, 112, 184, .20);
-  --bg-glow-2: rgba(47, 163, 107, .12);
-  --surface: #0E2440;
-  --surface-2: #143454;
-  --line: #1F4670;
-  --text: #EAF3FA;
-  --muted: #8FBEE0;
-  --accent: #4A90CE;
+  /* ---- Theme sombre : noir neutre --------------------------------
+     Le navy de la marque est une couleur d'encre, pas une couleur de
+     fond : etale sur un ecran entier il vire au delave. Le fond reste
+     donc noir et c'est le bleu qui ressort dessus. */
+  --bg: #0A0A0B;
+  --bg-glow-1: rgba(74, 144, 206, .12);
+  --bg-glow-2: rgba(47, 163, 107, .07);
+  --surface: #141417;
+  --surface-2: #1C1C21;
+  --line: #2B2B33;
+  --text: #F2F3F5;
+  --muted: #9B9BA6;
+  --accent: #5AA0DC;
+  --accent-fonce: #3F87C6;
   --accent-2: #2FBF9E;
-  --ok: #3FBE80;
+  --ok: #45C98A;
   --danger: #F2736B;
   --radius: 16px;
-  --shadow: 0 18px 40px rgba(4, 14, 26, .45);
+  --shadow: 0 18px 40px rgba(0, 0, 0, .55);
 }
 
 [data-theme="light"] {
@@ -47,6 +51,7 @@
   --text: #0E2440;
   --muted: #7C93AC;
   --accent: #17497E;
+  --accent-fonce: #0E2440;
   --accent-2: #17A67F;
   --ok: #2FA36B;
   --danger: #D64545;

@@ -1,11 +1,10 @@
-# Suivi des lives
+# Espace technique Wael Academy
 
 Deuxième fonction de **2-up Studio**, complètement séparée de l'outil
 d'imposition PDF : sa propre base de données, ses propres dossiers, sa propre
 interface.
 
-**Accès : http://localhost:1200/operations** — ou le bouton « Suivi des
-lives » en haut de la page 2-up.
+**Accès : http://localhost:1200/operations** — ou le bouton « Espace technique » en haut de la page 2-up.
 
 Sept écrans, un par point de la demande. Tout se crée, se modifie, s'affiche
 et se supprime depuis l'interface.
@@ -17,6 +16,11 @@ l'ancienne vignette, en blanc sur sa pastille navy, et sert aussi de favicon.
 Les émojis ont laissé place à un jeu d'icônes tracées (`static/suivi/icones.js`) :
 un émoji change de dessin d'un système à l'autre et porte ses propres
 couleurs ; ces icônes-ci sont en `currentColor` et suivent le thème.
+
+Le **thème clair** est celui par défaut, le navy sur fond clair de la charte.
+Le **thème sombre** est un noir neutre et non un navy foncé : étalée sur tout
+un écran, l'encre de marque vire au délavé — le fond reste donc noir et c'est
+le bleu qui ressort dessus.
 
 **Un seul rôle : « Technicien de live ».** Toute personne enregistrée peut
 recevoir des séances, écrire des rapports, ouvrir et traiter des tickets.
@@ -31,9 +35,19 @@ Il n'y a aucun droit à régler, aucune hiérarchie à définir.
 
 ### 1. Formulaire de rapport quotidien
 
-Bouton **＋ Rapport**, présent en haut de tous les écrans (raccourci : `n`).
+Le rapport s'ouvre **depuis la séance** : bouton *Rapport* sur le tableau de
+bord, icône sur la carte du planning et sur la ligne des Séances, ou étape
+*Rédiger le rapport* dans la liste des étapes. Un rapport se rattache à une
+séance : le proposer partout, la séance encore à choisir, faisait recommencer
+une saisie déjà faite. Le raccourci `n` ouvre un rapport libre.
 
-Le formulaire reprend exactement les champs demandés :
+**Un rapport envoyé se modifie.** Là où l'icône du rapport apparaît, elle
+ouvre le rapport existant en modification une fois celui-ci envoyé : une
+précision arrive souvent après coup, et il ne faut pas avoir à le rechercher
+dans l'écran Rapports. Chaque modification est inscrite au journal.
+
+Le formulaire est en trois temps — *la séance*, *ce qui s'est passé*,
+*compléments* — plutôt qu'en une seule colonne de onze champs :
 
 | Champ | Détail |
 |---|---|
@@ -108,21 +122,22 @@ Le compteur **☑ 3/7** est posé sur la carte du planning, sur la ligne de
 l'écran Séances et sur le tableau de bord ; on clique dessus pour ouvrir la
 liste et cocher ce qui est fait.
 
-| | Étape | Quand |
-|---|---|---|
-| 📞 | Appeler le professeur | avant le live |
-| 📥 | Récupérer le fichier de la séance | avant le live |
-| ⬆️ | Déposer le fichier sur le site Wael Academy | avant le live |
-| 🎬 | Ouvrir le live | pendant |
-| 👁️ | Contrôler le live | pendant |
-| 📝 | Rédiger le rapport après le live | après |
-| 📤 | Déposer le fichier après le live | après |
+| Étape | Quand |
+|---|---|
+| Appeler le professeur | avant le live |
+| Récupérer le fichier de la séance | avant le live |
+| Déposer le fichier sur le site Wael Academy | avant le live |
+| Ouvrir le live | pendant |
+| Contrôler le live | pendant |
+| Rédiger le rapport après le live | après |
+| Déposer le fichier après le live | après |
 
 Chaque case cochée retient **qui** l'a cochée et **quand**. La case du
 rapport fait exception : elle n'est pas cliquable, elle se coche toute seule
 à l'envoi du rapport et se décoche si le rapport est supprimé — sans quoi le
-tableau de bord pourrait annoncer un rapport qui n'existe pas. Le bouton
-**Rédiger** ouvre le formulaire directement depuis la liste.
+tableau de bord pourrait annoncer un rapport qui n'existe pas. Le bouton au
+bout de la ligne ouvre le formulaire — **Rédiger** tant que le rapport
+n'existe pas, **Modifier** ensuite.
 
 #### Commentaires sur une étape
 
@@ -196,12 +211,13 @@ Tout est modifiable par n'importe quel utilisateur, partout :
 
 | Objet | Créer | Modifier | Supprimer |
 |---|---|---|---|
-| Rapport | ＋ Rapport, ou « Remplir » sur une séance | ✏️ dans la liste ou la fiche | 🗑 (le dossier d'archive part avec) |
-| Live | ＋ Nouveau live | ✏️ sur la carte, ou glisser-déposer | 🗑 |
-| Ticket | ＋ Nouveau ticket | ✏️ dans le ticket | 🗑 |
+| Rapport | « Rapport » ou « Remplir » sur une séance | l'icône du rapport sur la séance, ou dans la liste et la fiche | corbeille (le dossier d'archive part avec) |
+| Live | « Nouveau live » | crayon sur la carte, ou glisser-déposer | corbeille |
+| Ticket | « Nouveau ticket » | crayon dans le ticket | corbeille |
 | Réponse | champ en bas du ticket | — | — |
-| Technicien | ＋ Ajouter un technicien | ✏️ sur sa fiche | 🗑 |
-| Pièce jointe | zone de dépôt | — | ✕ à côté du fichier |
+| Technicien | « Ajouter un technicien » | crayon sur sa fiche | corbeille |
+| Pièce jointe | zone de dépôt | — | croix à côté du fichier |
+| Commentaire d'étape | bulle sur la ligne de l'étape | — | corbeille sur le message |
 
 Chaque suppression demande confirmation. Toutes les actions sont inscrites
 dans **Dernières actions**, en bas de l'écran Équipe.
@@ -321,12 +337,12 @@ Le thème clair / sombre est partagé avec l'outil 2-up.
 
 Menu « Connecté en tant que », en haut à droite :
 
-* **🧹 Tout remettre à zéro** — efface rapports, lives, tickets, messages,
+* **Tout remettre à zéro** — efface rapports, lives, tickets, messages,
   équipe, journal et dossiers d'archive. L'application repart entièrement
   vide et le reste après un redémarrage. Chaque écran explique alors quoi
-  faire, et le bouton ＋ Rapport propose de créer le premier technicien.
-* **♻️ Jeu de démonstration** — remplit l'application avec un exemple complet
+  faire, et le premier rapport propose de créer le premier technicien.
+* **Jeu de démonstration** — remplit l'application avec un exemple complet
   (cinq techniciens, deux semaines de lives, rapports et tickets) pour essayer
-  sans rien saisir.
+  sans rien saisir. Désactivé par défaut, voir `SUIVI_DEMO`.
 
 Les deux demandent confirmation.

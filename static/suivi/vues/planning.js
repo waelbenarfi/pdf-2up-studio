@@ -10,7 +10,7 @@ import {
   valeurs, badgeStatutLive, badge, pastille, boutonIco, actionsLigne,
   optionsPersonnes, optionsSimples, info
 } from '../ui.js'
-import { ouvrirFormulaire } from './rapports.js'
+import { ouvrirFormulaire, ouvrirRapportDe } from './rapports.js'
 import { badgeTaches, boutonTaches, puceTaches } from './taches.js'
 
 import { ico } from '../icones.js'
@@ -122,20 +122,25 @@ function colonne ({ personne, lives, date }) {
   return boite
 }
 
+// L'heure et l'état d'abord, le titre ensuite, le compteur d'étapes en pied :
+// trois lignes de pastilles avant le titre faisaient perdre de vue la séance.
 function jeton (live) {
   const carteLive = h('div', { class: 's-jeton', draggable: 'true' },
     h('div', { class: 'bandeau' },
       h('span', { class: 's-heure' }, live.heure || '—'),
-      etiquetteRapport(live),
-      puceTaches(live)),
+      etiquetteRapport(live)),
     h('b', {}, live.titre),
-    // ligne masquée quand ni formateur ni plateforme ne sont renseignés
-    sousTitreLive(live),
+    h('div', { class: 'pied' },
+      // ligne masquée quand ni professeur ni plateforme ne sont renseignés
+      sousTitreLive(live),
+      puceTaches(live)),
     h('div', { class: 'outils' },
       live.aRapport
-        ? null
-        : boutonIco(ico('document'), 'Remplir le rapport', () => ouvrirFormulaire({ live })),
-      boutonIco(ico('crayon'), 'Modifier', () => ouvrirLive({ live })),
+        ? boutonIco(ico('document_crayon'), 'Modifier le rapport',
+          () => ouvrirRapportDe(live))
+        : boutonIco(ico('document'), 'Remplir le rapport',
+          () => ouvrirFormulaire({ live })),
+      boutonIco(ico('crayon'), 'Modifier la séance', () => ouvrirLive({ live })),
       boutonIco(ico('corbeille'), 'Supprimer', () => supprimerLive(live), 'danger')))
 
   carteLive.addEventListener('dragstart', (e) => {
@@ -183,8 +188,10 @@ export function ouvrirLive ({ live = null, date = null, apres = null } = {}) {
         aide: 'Vide = 1 h 30'
       })),
     h('div', { class: 's-lignes d2' },
-      champTexte(refs, 'formateur', 'Formateur', {
-        valeur: base.formateur, optionnel: true, exemple: 'Ex. Bader AL'
+      // la colonne s'appelle toujours `formateur` en base : seul le mot
+      // affiché change, donc rien à migrer sur les 283 séances déjà saisies
+      champTexte(refs, 'formateur', 'Professeur', {
+        valeur: base.formateur, optionnel: true, exemple: 'Ex. Mr / Mme'
       }),
       champListe(refs, 'plateforme', 'Plateforme',
         optionsSimples(CONST.plateformes, '—'), { valeur: base.plateforme })),
@@ -312,9 +319,11 @@ export async function vueLives (params) {
       actionsLigne(
         boutonTaches(live),
         live.aRapport
-          ? null
-          : boutonIco(ico('document'), 'Remplir le rapport', () => ouvrirFormulaire({ live })),
-        boutonIco(ico('crayon'), 'Modifier', () => ouvrirLive({ live })),
+          ? boutonIco(ico('document_crayon'), 'Modifier le rapport',
+            () => ouvrirRapportDe(live))
+          : boutonIco(ico('document'), 'Remplir le rapport',
+            () => ouvrirFormulaire({ live })),
+        boutonIco(ico('crayon'), 'Modifier la séance', () => ouvrirLive({ live })),
         boutonIco(ico('corbeille'), 'Supprimer', () => supprimerLive(live), 'danger'))
     ],
     message: vide({ dessin: 'agenda', titre: 'Aucune séance', texte: 'Aucune séance ne correspond à ces filtres.' })

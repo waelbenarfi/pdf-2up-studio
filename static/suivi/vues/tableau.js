@@ -7,7 +7,7 @@ import {
   carte, kpi, vide, badge, badgeEtat, badgeStatutLive, pastille, tableau,
   barreProgres, info
 } from '../ui.js'
-import { ouvrirFormulaire, ouvrirFiche } from './rapports.js'
+import { ouvrirFormulaire, ouvrirFiche, ouvrirRapportDe } from './rapports.js'
 import { puceTaches } from './taches.js'
 
 import { ico } from '../icones.js'
@@ -102,8 +102,11 @@ function journee (lives) {
         etiquetteLive(live),
         live.sansRapport
           ? h('button', { class: 'b primaire petit', onclick: () => ouvrirFormulaire({ live }) },
-              'Rapport')
-          : null))))
+            'Rapport')
+          : (live.aRapport
+              ? h('button', { class: 'b petit', onclick: () => ouvrirRapportDe(live) },
+                'Modifier')
+              : null)))))
 }
 
 function etiquetteLive (live) {

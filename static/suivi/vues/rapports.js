@@ -10,11 +10,24 @@ import {
   carte, vide, info, tableau, modale, confirmer, champTexte, champZone,
   champListe, champEtat, champPilules, valeurs, zoneFichiers, badgeEtat,
   badgeUrgence, badge, pastille, boutonIco, actionsLigne, ligneFiltres,
-  optionsPersonnes, optionsSimples
+  optionsPersonnes, optionsSimples, bloc
 } from '../ui.js'
 import { ouvrirPersonne } from './equipe.js'
-
 import { ico } from '../icones.js'
+
+/**
+ * Le rapport d'une séance, ouvert en modification.
+ *
+ * Un rapport envoyé n'est pas gravé : une précision arrive souvent après
+ * coup. Ce raccourci évite d'aller le rechercher dans l'écran Rapports —
+ * on repart de la séance, là où on s'est rendu compte de l'oubli.
+ */
+export async function ouvrirRapportDe (live, apres = null) {
+  if (!live.rapport_id) return ouvrirFormulaire({ live, apres })
+  const rapport = await essayer(() => api.get(`/rapports/${live.rapport_id}`))
+  if (rapport) ouvrirFormulaire({ rapport, apres })
+}
+
 /* ================================================================ liste */
 export async function vueRapports (params) {
   const filtres = {
@@ -284,24 +297,32 @@ export function ouvrirFormulaire ({ rapport = null, live = null, apres = null } 
     sous: modif
       ? 'La modification est enregistrée dans le journal.'
       : 'À remplir après chaque live — même quand tout s’est bien passé.',
-    corps: h('div', { style: { display: 'flex', flexDirection: 'column', gap: '16px' } },
+    corps: h('div', { class: 's-blocs' },
       messages,
-      !modif ? selecteurLive : null,
-      h('div', { class: 's-lignes d2' }, champDate, champHeure),
-      champNom,
-      champResp,
-      h('div', { class: 's-sep' }),
+      bloc({ titre: 'La séance', dessin: 'video' },
+        !modif ? selecteurLive : null,
+        h('div', { class: 's-lignes d2' }, champDate, champHeure),
+        champNom,
+        champResp),
+      bloc({
+        titre: 'Ce qui s’est passé', dessin: 'alerte',
+        sous: 'obligatoire, même quand tout va bien'
+      },
       champLEtat,
       aide,
       champUrgence,
       champDescription,
-      champActions,
+      champActions),
+      bloc({
+        titre: 'Compléments', dessin: 'trombone',
+        sous: 'facultatif'
+      },
       champEleves,
       h('div', { class: 's-champ' },
         h('label', {}, 'Capture d’écran ou fichier',
           h('span', { class: 'opt' }, '(optionnel)')),
         zone.noeud),
-      champCommentaires),
+      champCommentaires)),
     actions: (fermer) => [
       modif
         ? h('button', {

@@ -65,11 +65,10 @@ function dessinerEntete () {
     h('h1', {}, ecran.titre),
     h('p', {}, ecran.sous))
 
+  // Pas de bouton « Rapport » ici : un rapport se rattache à une séance, et
+  // chaque écran en propose un au bon endroit, la séance déjà choisie.
   const personne = etat.personnes.find(p => p.id === etat.moi)
   remplir($('#hautActions'),
-    h('button', {
-      class: 'b primaire', onclick: () => ouvrirFormulaire({})
-    }, ico('plus', 15), 'Rapport'),
     h('button', {
       class: 's-qui', onclick: (e) => { e.stopPropagation(); menuProfil() }
     },

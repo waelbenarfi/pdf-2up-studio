@@ -81,6 +81,22 @@ export function vide (options) {
 
 export const info = (texte) => h('p', { class: 's-info' }, texte)
 
+/**
+ * Un bloc de formulaire sous son intitulé.
+ *
+ * Onze champs à la file se lisent comme un mur ; groupés en trois temps —
+ * la séance, ce qui s'est passé, les compléments — le formulaire se parcourt
+ * d'un coup d'œil et on sait toujours où on en est.
+ */
+export function bloc ({ titre, dessin, sous }, ...enfants) {
+  return h('section', { class: 's-bloc' },
+    h('div', { class: 's-bloc-tete' },
+      dessin && h('span', { class: 's-bloc-ico' }, ico(dessin, 15)),
+      h('b', {}, titre),
+      sous && h('small', {}, sous)),
+    h('div', { class: 's-bloc-corps' }, ...enfants))
+}
+
 /* --------------------------------------------------------------- champs */
 function enveloppe (etiquette, champ, { aide, obligatoire, optionnel } = {}) {
   return h('div', { class: 's-champ' },

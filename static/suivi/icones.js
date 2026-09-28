@@ -54,6 +54,8 @@ const DESSINS = {
 
   /* ------------------------------------------------------------ actions */
   crayon: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  document_crayon: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h5"/><path d="M14 2v6h6V8"/>'
+    + '<path d="M18.4 12.6a2 2 0 1 1 2.8 2.8L16 20.6l-3 .8.8-3z"/>',
   corbeille: '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>'
     + '<path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
@@ -61,7 +63,8 @@ const DESSINS = {
   coche: '<path d="m20 6-11 11-5-5"/>',
   bulle: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
   envoyer: '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>',
-  echange: '<path d="M16 3h5v5"/><path d="m21 3-7 7"/><path d="M8 21H3v-5"/><path d="m3 21 7-7"/>',
+  echange: '<path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/>'
+    + '<path d="m15 15 6 6"/><path d="m4 4 5 5"/>',
   trombone: '<path d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.2-9.19a4 4 0 0 1 5.65 5.66l-9.2 9.19'
     + 'a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
   lune: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',

@@ -5,8 +5,9 @@ Application locale à deux fonctions, servies par le même serveur :
 1. **Outil 2-up** (`/`) — deux pages paysage sur chaque feuille portrait, avec
    suppression automatique des pages vides et remplacement de la première page.
 2. **Suivi des lives** (`/operations`) — rapport obligatoire après chaque
-   séance, classement automatique des dossiers par mois, planification,
-   support technique et tableau de bord.
+   séance, étapes à cocher pour chaque live (appel du professeur, fichiers,
+   ouverture, contrôle), classement automatique des dossiers par mois,
+   planification, support technique et tableau de bord.
    Voir [SUIVI-DES-LIVES.md](SUIVI-DES-LIVES.md).
 
 Tout se passe en local, aucun fichier ne quitte la machine.

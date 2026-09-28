@@ -8,6 +8,7 @@ import {
   barreProgres, info
 } from '../ui.js'
 import { ouvrirFormulaire, ouvrirFiche } from './rapports.js'
+import { puceTaches } from './taches.js'
 
 export async function vueTableau () {
   const data = await api.get('/tableau')
@@ -43,7 +44,10 @@ export async function vueTableau () {
     h('div', { class: 's-grille k2' },
       carte({
         titre: 'Journée en cours',
-        sous: `${data.livesJour.length} séance(s) au programme`,
+        sous: `${data.livesJour.length} séance(s) au programme`
+          + (k.etapesRestantes
+            ? ` · ${k.etapesRestantes} étape(s) restante(s)`
+            : ' · toutes les étapes sont faites'),
         actions: [h('button', { class: 'b petit', onclick: () => aller('planning') },
           'Planning')]
       }, journee(data.livesJour)),
@@ -93,6 +97,7 @@ function journee (lives) {
         h('b', {}, live.titre),
         h('small', {}, live.responsable_nom || 'sans responsable')),
       h('div', { class: 'droite' },
+        puceTaches(live),
         etiquetteLive(live),
         live.sansRapport
           ? h('button', { class: 'b primaire petit', onclick: () => ouvrirFormulaire({ live }) },

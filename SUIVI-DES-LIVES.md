@@ -93,6 +93,35 @@ rôle entre tous les techniciens.
 Chaque personne retrouve ensuite ses seules séances (filtre *Responsable* sur
 l'écran Séances). Les flèches ‹ › et le sélecteur de date changent de journée.
 
+#### Les étapes d'une séance
+
+Chaque live porte la même liste de sept étapes, dans l'ordre de la journée.
+Le compteur **☑ 3/7** est posé sur la carte du planning, sur la ligne de
+l'écran Séances et sur le tableau de bord ; on clique dessus pour ouvrir la
+liste et cocher ce qui est fait.
+
+| | Étape | Quand |
+|---|---|---|
+| 📞 | Appeler le professeur | avant le live |
+| 📥 | Récupérer le fichier de la séance | avant le live |
+| ⬆️ | Déposer le fichier sur le site Wael Academy | avant le live |
+| 🎬 | Ouvrir le live | pendant |
+| 👁️ | Contrôler le live | pendant |
+| 📝 | Rédiger le rapport après le live | après |
+| 📤 | Déposer le fichier après le live | après |
+
+Chaque case cochée retient **qui** l'a cochée et **quand**. La case du
+rapport fait exception : elle n'est pas cliquable, elle se coche toute seule
+à l'envoi du rapport et se décoche si le rapport est supprimé — sans quoi le
+tableau de bord pourrait annoncer un rapport qui n'existe pas. Le bouton
+**Rédiger** ouvre le formulaire directement depuis la liste.
+
+Le tableau de bord résume la journée : *« 12 séance(s) au programme · 34
+étape(s) restante(s) »*. L'export CSV des séances porte deux colonnes de
+plus, *Étapes faites* et *Étapes au total*.
+
+Supprimer une séance supprime ses étapes avec elle.
+
 ### 5. Rapport obligatoire
 
 Le système sait, pour chaque séance terminée :

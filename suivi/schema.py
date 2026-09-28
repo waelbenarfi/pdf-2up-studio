@@ -8,7 +8,7 @@ pas diverger.
 
 import re
 
-VERSION = 1
+VERSION = 2
 
 MOIS = [
     "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin",
@@ -54,6 +54,47 @@ STATUTS_LIVE = [
 PLATEFORMES = ["Zoom", "Google Meet", "Microsoft Teams", "YouTube Live",
                "Facebook Live", "Autre"]
 
+# ---------------------------------------------------------------- taches
+# Le deroule d'une seance, du premier coup de fil au depot du fichier final.
+# L'ordre de la liste est l'ordre d'affichage : il raconte la journee, et
+# c'est aussi l'ordre dans lequel les cases se cochent.
+MOMENTS = [
+    {"cle": "avant", "libelle": "Avant le live", "icone": "🕘", "ton": "info"},
+    {"cle": "pendant", "libelle": "Pendant le live", "icone": "🔴",
+     "ton": "accent"},
+    {"cle": "apres", "libelle": "Après le live", "icone": "✅", "ton": "ok"},
+]
+
+TACHES = [
+    {"cle": "appel_prof", "moment": "avant", "icone": "📞",
+     "libelle": "Appeler le professeur",
+     "aide": "Confirmer sa présence et l'horaire de la séance"},
+    {"cle": "fichier_avant", "moment": "avant", "icone": "📥",
+     "libelle": "Récupérer le fichier de la séance",
+     "aide": "Support de cours reçu du professeur"},
+    {"cle": "depot_avant", "moment": "avant", "icone": "⬆️",
+     "libelle": "Déposer le fichier sur le site Wael Academy",
+     "aide": "Mis en ligne avant le début du live"},
+    {"cle": "ouverture", "moment": "pendant", "icone": "🎬",
+     "libelle": "Ouvrir le live",
+     "aide": "Salle ouverte à l'heure prévue"},
+    {"cle": "controle", "moment": "pendant", "icone": "👁️",
+     "libelle": "Contrôler le live",
+     "aide": "Son, image et présence surveillés pendant toute la séance"},
+    {"cle": "rapport", "moment": "apres", "icone": "📝",
+     "libelle": "Rédiger le rapport après le live",
+     "aide": "Rapport envoyé une fois la séance terminée"},
+    {"cle": "depot_apres", "moment": "apres", "icone": "📤",
+     "libelle": "Déposer le fichier après le live",
+     "aide": "Enregistrement ou support final mis en ligne"},
+]
+
+CLES_TACHES = [item["cle"] for item in TACHES]
+
+# La case « Rédiger le rapport » se coche toute seule quand le rapport part
+# pour de bon : deux endroits ou dire la meme chose finiraient par diverger.
+TACHE_RAPPORT = "rapport"
+
 # ---------------------------------------------------------------- support
 STATUTS_TICKET = [
     {"cle": "nouveau", "libelle": "Nouveau", "ton": "info"},
@@ -95,14 +136,14 @@ TAILLE_MAX_MO = 50
 
 # Tables videes par « Tout remettre a zero » (dans cet ordre : les enfants
 # d'abord, pour ne pas heurter les cles etrangeres).
-TABLES_DONNEES = ["messages", "fichiers", "tickets", "rapports", "lives",
-                  "personnes", "journal"]
+TABLES_DONNEES = ["messages", "fichiers", "tickets", "taches", "rapports",
+                  "lives", "personnes", "journal"]
 
 # Tables dont la cle primaire est un entier auto-incremente. `parametres` est
 # la seule a en etre depourvue : sa cle est un texte. La distinction sert a
 # savoir ou ajouter un RETURNING id sous PostgreSQL.
 TABLES_ID = ["personnes", "lives", "rapports", "fichiers", "tickets",
-             "messages", "journal"]
+             "messages", "journal", "taches"]
 
 
 DDL = """
@@ -218,18 +259,52 @@ CREATE TABLE IF NOT EXISTS journal (
 CREATE INDEX IF NOT EXISTS i_journal_quand ON journal(quand);
 """
 
+# Tables apparues apres la premiere version. Elles sont ajoutees a DDL pour
+# une base neuve, et rejouees seules sur une base deja installee : sans cela
+# une nouveaute n'atteindrait jamais une base de production deja en place,
+# puisque l'installation complete ne tourne qu'une fois.
+#
+# Une tache n'a de ligne qu'une fois cochee : la liste de reference est
+# TACHES, pas la table. Rien a migrer le jour ou une etape s'ajoute.
+AJOUTS = """
+CREATE TABLE IF NOT EXISTS taches (
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  live_id  INTEGER NOT NULL REFERENCES lives(id) ON DELETE CASCADE,
+  cle      TEXT    NOT NULL,
+  fait     INTEGER NOT NULL DEFAULT 0,
+  fait_le  TEXT    NOT NULL DEFAULT '',
+  fait_par TEXT    NOT NULL DEFAULT ''
+);
+CREATE UNIQUE INDEX IF NOT EXISTS i_taches_live_cle ON taches(live_id, cle);
+"""
 
-def ddl_postgres():
-    """Le meme schema, dit en PostgreSQL.
+# Consultees au demarrage pour savoir s'il reste quelque chose a creer.
+TABLES_AJOUTEES = ["taches"]
+
+DDL = DDL + AJOUTS
+
+
+def _postgres(texte):
+    """Traduit un morceau de schema du dialecte SQLite vers PostgreSQL.
 
     Deriver la variante plutot que la recopier evite que les deux versions
     divergent : il n'y a qu'un seul endroit ou ajouter une colonne. Seules
     deux choses separent les dialectes ici, les PRAGMA (propres a SQLite) et
     la facon de declarer une cle primaire auto-incrementee.
     """
-    texte = re.sub(r"^\s*PRAGMA[^;]*;\s*$", "", DDL, flags=re.MULTILINE)
-    return texte.replace("INTEGER PRIMARY KEY AUTOINCREMENT",
-                         "SERIAL PRIMARY KEY")
+    sans_pragma = re.sub(r"^\s*PRAGMA[^;]*;\s*$", "", texte, flags=re.MULTILINE)
+    return sans_pragma.replace("INTEGER PRIMARY KEY AUTOINCREMENT",
+                               "SERIAL PRIMARY KEY")
+
+
+def ddl_postgres():
+    """Le schema complet, dit en PostgreSQL."""
+    return _postgres(DDL)
+
+
+def ddl_postgres_ajouts():
+    """Les seules tables ajoutees apres coup, pour une base deja installee."""
+    return _postgres(AJOUTS)
 
 
 def par_cle(liste):
@@ -246,6 +321,9 @@ def constantes():
         "priorites": PRIORITES,
         "categoriesTicket": CATEGORIES_TICKET,
         "plateformes": PLATEFORMES,
+        "taches": TACHES,
+        "moments": MOMENTS,
+        "tacheRapport": TACHE_RAPPORT,
         "fonction": FONCTION,
         "couleurs": COULEURS,
         "mois": MOIS_ACCENT,

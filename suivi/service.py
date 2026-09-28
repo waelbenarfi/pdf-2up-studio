@@ -135,12 +135,17 @@ def supprimer_personne(ident, par=""):
 
 
 # ==================================================================== lives
+# Le compte des etapes cochees arrive par une jointure et non par une requete
+# par seance : la liste du mois appelle cette requete une fois, pas trois cents.
 SELECT_LIVE = """
 SELECT l.*, p.nom AS responsable_nom, p.couleur AS responsable_couleur,
-       r.id AS rapport_id, r.reference AS rapport_reference, r.etat AS rapport_etat
+       r.id AS rapport_id, r.reference AS rapport_reference, r.etat AS rapport_etat,
+       COALESCE(t.faites, 0) AS taches_faites
 FROM lives l
 LEFT JOIN personnes p ON p.id = l.responsable_id
 LEFT JOIN rapports  r ON r.live_id = l.id
+LEFT JOIN (SELECT live_id, COUNT(*) AS faites FROM taches
+           WHERE fait = 1 GROUP BY live_id) t ON t.live_id = l.id
 """
 
 
@@ -152,6 +157,13 @@ def _enrichir_live(live):
     live["aRapport"] = live.get("rapport_id") is not None
     live["sansRapport"] = bool(
         passe and not live["aRapport"] and live["statut"] != "annule")
+
+    total = len(schema.TACHES)
+    faites = min(int(live.get("taches_faites") or 0), total)
+    live["tachesFaites"] = faites
+    live["tachesTotal"] = total
+    live["tachesRestantes"] = total - faites
+    live["tachesCompletes"] = faites >= total
     return live
 
 
@@ -271,6 +283,60 @@ def repartir(date, par=""):
     journaliser("Répartition automatique", date,
                 "%d live(s) sur %d personne(s)" % (len(jour), len(equipe)), par)
     return lives(date=date)
+
+
+# =================================================================== taches
+# Chaque seance suit le meme deroule (schema.TACHES). Une etape n'a de ligne
+# en base qu'une fois cochee : la liste de reference reste le code, donc en
+# ajouter une plus tard ne demande aucune reprise des seances passees.
+def taches_de(live_id):
+    faites = {ligne["cle"]: ligne for ligne in db.tous(
+        "SELECT * FROM taches WHERE live_id = ?", (live_id,))}
+    sortie = []
+    for item in schema.TACHES:
+        ligne = faites.get(item["cle"]) or {}
+        etape = dict(item)
+        etape.update({
+            "fait": bool(ligne.get("fait")),
+            "fait_le": ligne.get("fait_le", ""),
+            "fait_par": ligne.get("fait_par", ""),
+        })
+        sortie.append(etape)
+    return sortie
+
+
+def _poser_tache(live_id, cle, fait, par=""):
+    """Ecrit une case. Sans controle : les appelants ont deja verifie."""
+    ligne = db.un("SELECT id FROM taches WHERE live_id = ? AND cle = ?",
+                  (live_id, cle))
+    champs = {"fait": 1 if fait else 0,
+              "fait_le": db.maintenant() if fait else "",
+              "fait_par": par if fait else ""}
+    if ligne:
+        db.modifier("taches", ligne["id"], champs)
+    else:
+        champs.update({"live_id": live_id, "cle": cle})
+        db.inserer("taches", champs)
+
+
+def basculer_tache(live_id, cle, fait, par=""):
+    seance = db.un("SELECT * FROM lives WHERE id = ?", (live_id,))
+    if not seance:
+        raise Refus("Live introuvable.")
+    if cle not in schema.CLES_TACHES:
+        raise Refus("Étape inconnue : %s." % cle)
+    etape = next(item for item in schema.TACHES if item["cle"] == cle)
+
+    # La case du rapport suit le rapport lui-meme, jamais la main : la cocher
+    # sans rapport ferait mentir le tableau de bord.
+    if cle == schema.TACHE_RAPPORT:
+        raise Refus("« %s » se coche toute seule quand le rapport part. "
+                    "Utilisez le bouton Rapport." % etape["libelle"])
+
+    _poser_tache(live_id, cle, fait, par)
+    journaliser("Étape %s" % ("faite" if fait else "rouverte"),
+                seance["titre"], etape["libelle"], par)
+    return {"live": live(live_id), "taches": taches_de(live_id)}
 
 
 # ================================================================= rapports
@@ -427,6 +493,8 @@ def creer_rapport(valeurs, par=""):
         if not live_lie["responsable_id"] and champs["responsable_id"]:
             suite["responsable_id"] = champs["responsable_id"]
         db.modifier("lives", live_id, suite)
+        _poser_tache(live_id, schema.TACHE_RAPPORT, True,
+                     par or champs["responsable_nom"])
     complet = rapport(ident)
     archive.assurer_rapport(complet)
     journaliser("Rapport envoyé", complet["reference"],
@@ -464,6 +532,8 @@ def supprimer_rapport(ident, par=""):
     if actuel["live_id"]:
         db.modifier("lives", actuel["live_id"],
                     {"statut": "termine", "maj_le": db.maintenant()})
+        # le rapport n'existe plus : l'etape correspondante non plus
+        _poser_tache(actuel["live_id"], schema.TACHE_RAPPORT, False)
     journaliser("Rapport supprimé", actuel["reference"], actuel["nom_live"],
                 par)
     return {"supprime": True}
@@ -691,6 +761,8 @@ def tableau():
 
     lives_jour = lives(date=aujourdhui)
     sans_rapport_jour = [l for l in lives_jour if l["sansRapport"]]
+    etapes_restantes = sum(l["tachesRestantes"] for l in lives_jour
+                           if l["statut"] != "annule")
     sans_rapport_total = lives(du=depuis, sans_rapport=True)
     rapports_jour = db.tous("SELECT * FROM rapports WHERE date = ?",
                             (aujourdhui,))
@@ -711,6 +783,7 @@ def tableau():
             "rapportsJour": len(rapports_jour),
             "sansRapportJour": len(sans_rapport_jour),
             "sansRapportTotal": len(sans_rapport_total),
+            "etapesRestantes": etapes_restantes,
             "incidents": len(incidents),
             "critiques": len(critiques),
             "ticketsOuverts": len(ouverts),

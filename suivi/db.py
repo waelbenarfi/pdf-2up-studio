@@ -263,23 +263,44 @@ def initialiser(chemin, avec_demo=None):
 _VERROU = 862026
 
 
+def _existe(cnx, table):
+    trouve = cnx.execute("SELECT to_regclass('public.%s') AS t" % table
+                         ).fetchone()
+    return bool(trouve and trouve["t"])
+
+
 def _deja_installee(cnx):
     """Vrai si une precedente instance a fini l'installation.
 
     Evite de rejouer tout le schema a chaque demarrage a froid, ce qui, en
     serverless, arrive souvent.
     """
-    table = cnx.execute("SELECT to_regclass('public.parametres') AS t").fetchone()
-    if not table or not table["t"]:
+    if not _existe(cnx, "parametres"):
         return False
     return cnx.execute("SELECT 1 AS present FROM parametres"
                        " WHERE cle = 'installe'").fetchone() is not None
+
+
+def _rattraper_postgres(cnx):
+    """Cree les tables apparues apres l'installation d'origine.
+
+    Sans ce rattrapage une base de production, installee une fois pour
+    toutes, ne verrait jamais une table nouvelle : `_deja_installee` coupe
+    court avant le schema complet. Le test d'existence garde le demarrage a
+    froid gratuit dans le cas normal, ou il n'y a rien a faire.
+    """
+    if all(_existe(cnx, table) for table in schema.TABLES_AJOUTEES):
+        return
+    cnx.execute("SELECT pg_advisory_xact_lock(%d)" % _VERROU)
+    cnx.brute.cursor().execute(schema.ddl_postgres_ajouts())
+    cnx.commit()          # libere aussi le verrou
 
 
 def _initialiser_postgres(avec_demo):
     cnx = _ouvrir()
     try:
         if _deja_installee(cnx):
+            _rattraper_postgres(cnx)
             return
         cnx.execute("SELECT pg_advisory_xact_lock(%d)" % _VERROU)
         cnx.brute.cursor().execute(schema.ddl_postgres())

@@ -190,6 +190,9 @@ body.suivi { margin: 0; }
   padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 650;
   border: 1px solid transparent; white-space: nowrap;
 }
+/* variante cliquable : meme pastille, mais elle ouvre quelque chose */
+button.s-badge.clic { font-family: inherit; cursor: pointer; }
+button.s-badge.clic:hover { filter: brightness(1.12); border-color: currentColor; }
 .t-ok     { color: var(--ok);     background: color-mix(in srgb, var(--ok) 15%, transparent);     border-color: color-mix(in srgb, var(--ok) 30%, transparent); }
 .t-warn   { color: var(--warn);   background: color-mix(in srgb, var(--warn) 16%, transparent);   border-color: color-mix(in srgb, var(--warn) 32%, transparent); }
 .t-danger { color: var(--danger); background: color-mix(in srgb, var(--danger) 15%, transparent); border-color: color-mix(in srgb, var(--danger) 30%, transparent); }
@@ -435,6 +438,42 @@ table.s-tableau { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   overflow: hidden; }
 .s-barre-progres > i { display: block; height: 100%; border-radius: 999px;
   background: var(--accent); }
+
+/* ---------------------------------------------------- etapes ---------- */
+.s-taches { display: flex; flex-direction: column; gap: 12px; }
+.s-taches-tete { display: flex; align-items: baseline; justify-content: space-between;
+  gap: 10px; font-size: 13px; }
+.s-taches-tete span { color: var(--muted); font-size: 12px; }
+.s-taches-groupe { display: flex; flex-direction: column; gap: 7px; }
+.s-taches-groupe .s-nav-titre { padding: 0; margin: 4px 0 0; }
+
+.s-tache {
+  display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm);
+  background: var(--surface-2); color: var(--text); font: inherit;
+  cursor: pointer; transition: border-color .14s, background .14s;
+}
+.s-tache:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+.s-tache .case {
+  flex: none; width: 21px; height: 21px; border-radius: 6px;
+  border: 1.5px solid var(--line); display: grid; place-items: center;
+  font-size: 13px; font-weight: 700; color: transparent;
+}
+.s-tache .ico { flex: none; font-size: 16px; }
+.s-tache .corps { flex: 1; min-width: 0; }
+.s-tache .corps b { display: block; font-size: 13.5px; }
+.s-tache .corps small { color: var(--muted); font-size: 11.5px; }
+
+.s-tache.faite { border-color: color-mix(in srgb, var(--ok) 45%, var(--line));
+  background: color-mix(in srgb, var(--ok) 8%, var(--surface-2)); }
+.s-tache.faite .case { background: var(--ok); border-color: var(--ok); color: #fff; }
+.s-tache.faite .corps b { text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--muted) 70%, transparent); }
+
+/* l'etape du rapport se coche toute seule : rien a cliquer sur la ligne */
+.s-tache.liee { cursor: default; }
+.s-tache.liee:hover { border-color: var(--line); }
+.s-tache.liee.faite:hover { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
 
 /* ---------------------------------------------------- modale ---------- */
 .s-voile {

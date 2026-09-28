@@ -122,6 +122,16 @@ def repartir():
     return ok(service.repartir(corps.get("date") or db.aujourdhui(), _qui()))
 
 
+@suivi_bp.route("/api/suivi/lives/<int:ident>/taches", methods=["GET", "PATCH"])
+def taches(ident):
+    """Les etapes d'une seance : appel du prof, fichiers, live, rapport."""
+    if request.method == "PATCH":
+        corps = _corps()
+        return ok(service.basculer_tache(ident, corps.get("cle", ""),
+                                         bool(corps.get("fait")), _qui()))
+    return ok(service.taches_de(ident))
+
+
 @suivi_bp.route("/api/suivi/lives/<int:ident>",
                 methods=["GET", "PATCH", "PUT", "DELETE"])
 def live(ident):
@@ -324,6 +334,7 @@ COLONNES = {
         ("titre", "Live / classe"), ("formateur", "Formateur"),
         ("plateforme", "Plateforme"), ("responsable_nom", "Responsable"),
         ("statut", "Statut"), ("rapport_reference", "Rapport"),
+        ("tachesFaites", "Étapes faites"), ("tachesTotal", "Étapes au total"),
     ],
     "tickets": [
         ("reference", "Référence"), ("sujet", "Sujet"),

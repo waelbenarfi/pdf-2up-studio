@@ -11,6 +11,7 @@ import {
   optionsPersonnes, optionsSimples, info
 } from '../ui.js'
 import { ouvrirFormulaire } from './rapports.js'
+import { badgeTaches, boutonTaches, puceTaches } from './taches.js'
 
 export async function vuePlanning (params) {
   const date = params.date || aujourdhui()
@@ -124,7 +125,8 @@ function jeton (live) {
   const carteLive = h('div', { class: 's-jeton', draggable: 'true' },
     h('div', { class: 'bandeau' },
       h('span', { class: 's-heure' }, live.heure || '—'),
-      etiquetteRapport(live)),
+      etiquetteRapport(live),
+      puceTaches(live)),
     h('b', {}, live.titre),
     // ligne masquée quand ni formateur ni plateforme ne sont renseignés
     sousTitreLive(live),
@@ -289,7 +291,8 @@ export async function vueLives (params) {
       { titre: 'Date', largeur: '120px' }, { titre: 'Heure', largeur: '110px' },
       { titre: 'Live / classe' }, { titre: 'Responsable' },
       { titre: 'Statut' }, { titre: 'Rapport' },
-      { titre: '', classe: 'actions', largeur: '130px' }
+      { titre: 'Étapes', largeur: '90px' },
+      { titre: '', classe: 'actions', largeur: '160px' }
     ],
     lignes: lives,
     rendu: (live) => [
@@ -304,7 +307,9 @@ export async function vueLives (params) {
         h('span', {}, live.responsable_nom || 'à attribuer')),
       badgeStatutLive(live.statut),
       colonneRapport(live),
+      badgeTaches(live),
       actionsLigne(
+        boutonTaches(live),
         live.aRapport
           ? null
           : boutonIco('📝', 'Remplir le rapport', () => ouvrirFormulaire({ live })),

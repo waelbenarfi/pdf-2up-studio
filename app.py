@@ -39,10 +39,12 @@ os.makedirs(WORK_DIR, exist_ok=True)
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
 
-# Deuxieme fonction de l'application : le Suivi des lives.
+# Deuxieme fonction de l'application : l'Espace technique.
 # Module autonome (base, archives et routes qui lui sont propres) ; il ne
 # partage avec l'outil 2-up que le serveur Flask et la barre de navigation.
-suivi.preparer()
+# L'application lui est passee : il y pose la cle de signature des sessions,
+# lue en base pour rester la meme d'une instance a l'autre.
+suivi.preparer(app)
 app.register_blueprint(suivi.suivi_bp)
 
 

@@ -22,12 +22,75 @@ Le **thème sombre** est un noir neutre et non un navy foncé : étalée sur tou
 un écran, l'encre de marque vire au délavé — le fond reste donc noir et c'est
 le bleu qui ressort dessus.
 
-**Un seul rôle : « Technicien de live ».** Toute personne enregistrée peut
-recevoir des séances, écrire des rapports, ouvrir et traiter des tickets.
-Il n'y a aucun droit à régler, aucune hiérarchie à définir.
+---
+
+## Comptes et mots de passe
+
+L'espace est **fermé** : plus rien ne s'ouvre sans connexion. Auparavant
+chacun se déclarait lui-même depuis un menu, et le serveur le croyait sur
+parole — n'importe qui pouvait signer un rapport au nom d'un autre. L'identité
+vient désormais de la session, et l'en-tête que le navigateur envoyait n'est
+plus lue du tout.
+
+### Deux rôles
+
+| | Administrateur | Technicien de live |
+|---|---|---|
+| Séances, étapes, commentaires, rapports, tickets | oui | oui |
+| Modifier un rapport déjà envoyé | oui | oui |
+| Ajouter, modifier, supprimer un membre | oui | non |
+| Poser ou retirer un mot de passe | oui | son propre seulement |
+| Nommer un administrateur | oui | non |
+| Supprimer une séance ou un rapport | oui | non |
+| Tout remettre à zéro | oui | non |
+
+Un technicien garde donc tout son travail quotidien ; ce qui lui échappe,
+c'est l'administration et ce qui efface. Supprimer un rapport n'est pas une
+correction mais l'effacement d'une trace : il peut toujours le **modifier**.
+
+### Première configuration
+
+Au premier démarrage, la page de connexion propose de poser le mot de passe
+de l'administrateur. **Cette page ne se représente plus une fois le mot de
+passe posé** : il faut donc le faire tout de suite, avant que quelqu'un
+d'autre n'arrive sur le site.
+
+Si aucune équipe n'existe encore, elle demande aussi le nom. Si l'équipe est
+déjà là, c'est la personne nommée `ADMIN_PAR_DEFAUT` (*Oussama Mzali*) qui
+devient administratrice ; à défaut, la plus anciennement enregistrée.
+
+**Mot de passe perdu ?** Poser la variable d'environnement
+`SUIVI_ADMIN_MDP` chez l'hébergeur : au démarrage suivant, l'administrateur
+reprend ce mot de passe. La retirer ensuite, sinon il est reposé à chaque
+démarrage.
+
+### Au quotidien
+
+L'administrateur crée les membres depuis l'écran **Équipe** et leur donne un
+mot de passe de vive voix ; chacun peut ensuite le changer depuis son propre
+menu, en donnant l'actuel. Une fiche annonce clairement *peut se connecter*
+ou *sans mot de passe* — ce dernier ne bloque personne dans son travail
+existant, il empêche seulement la connexion.
+
+Changer un mot de passe **ferme les sessions ouvertes ailleurs** : de quoi
+reprendre la main sur un poste resté connecté. Changer un *rôle* ne
+déconnecte personne.
+
+La clé qui signe les sessions est rangée **en base** et non dans une variable
+d'environnement : en hébergement serverless, une clé tirée au démarrage
+changerait à chaque instance et déconnecterait tout le monde en permanence.
+
+**Ce qui n'est pas protégé :** l'outil PDF 2-up (`/`) reste ouvert. Il ne
+contient aucune donnée et ne sert qu'à imposer un fichier envoyé sur le
+moment.
 
 **Tout peut s'écrire en arabe**, y compris dans les PDF — voir la
 [section Écrire en arabe](#écrire-en-arabe).
+
+**Qui a fait quoi, et quand.** Chaque étape cochée, chaque commentaire,
+chaque rapport envoyé ou corrigé porte son auteur et son horodatage. Le tout
+est repris dans le rapport lui-même — PDF et copie texte — sous *Étapes de
+la séance* et *Traçabilité*.
 
 ---
 

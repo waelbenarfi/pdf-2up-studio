@@ -2,11 +2,12 @@
 
 import {
   api, etat, h, $, remplir, route, aller, demarrerNavigation, dessiner,
-  chargerPersonnes, definirMoi, essayer, toast, initiales, aujourdhui,
-  routeCourante
+  chargerPersonnes, deconnecter, essayer, toast, initiales, aujourdhui,
+  routeCourante, moiMeme
 } from './noyau.js'
 import { confirmer } from './ui.js'
 import { ico } from './icones.js'
+import { ouvrirMotDePasse } from './vues/equipe.js'
 import { vueTableau } from './vues/tableau.js'
 import { vuePlanning, vueLives } from './vues/planning.js'
 import { vueRapports, ouvrirFormulaire } from './vues/rapports.js'
@@ -67,22 +68,25 @@ function dessinerEntete () {
 
   // Pas de bouton « Rapport » ici : un rapport se rattache à une séance, et
   // chaque écran en propose un au bon endroit, la séance déjà choisie.
-  const personne = etat.personnes.find(p => p.id === etat.moi)
   remplir($('#hautActions'),
     h('button', {
       class: 's-qui', onclick: (e) => { e.stopPropagation(); menuProfil() }
     },
-    h('span', {
-      class: 's-pastille',
-      style: { background: personne ? personne.couleur : 'var(--muted)' }
-    }, initiales(personne && personne.nom)),
+    h('span', { class: 's-pastille', style: { background: moiCouleur() } },
+      initiales(etat.moiNom)),
     h('span', {},
-      h('small', {}, 'Connecté en tant que'),
-      h('b', {}, personne ? personne.nom : 'Choisir…'))),
+      h('small', {}, etat.admin ? 'Administrateur' : 'Connecté'),
+      h('b', {}, etat.moiNom || '—'))),
     h('button', {
       class: 'b ico', title: 'Thème clair / sombre', onclick: basculerTheme
     }, ico('lune')))
 }
+
+const moiCouleur = () => (moiMeme() || {}).couleur || 'var(--muted)'
+
+const ouvrirMonMotDePasse = () =>
+  ouvrirMotDePasse({ personne: moiMeme() || { id: etat.moi, nom: etat.moiNom },
+    soiMeme: true })
 
 function menuProfil () {
   const existant = document.querySelector('.s-menu-profil')
@@ -97,33 +101,41 @@ function menuProfil () {
       width: '260px', maxHeight: '70vh', overflowY: 'auto'
     }
   },
-  h('div', { class: 's-nav-titre', style: { padding: '6px 10px' } }, 'Je suis'),
-  etat.personnes.length
-    ? null
-    : h('p', { class: 's-info', style: { margin: '0 4px 6px' } },
-        'Aucun technicien de live enregistré. Commencez par en ajouter.'),
-  ...etat.personnes.map(personne => h('button', {
-    class: `s-lien ${personne.id === etat.moi ? 'actif' : ''}`,
-    onclick: () => {
-      definirMoi(personne.id)
-      menu.remove()
-      dessinerEntete()
-      toast(`Vous travaillez maintenant en tant que ${personne.nom}.`, 'info')
-    }
-  },
-  h('span', {
-    class: 's-pastille mini', style: { background: personne.couleur }
-  }, initiales(personne.nom)),
-  h('span', { class: 'txt' }, personne.nom))),
+  h('div', { class: 's-nav-titre', style: { padding: '6px 10px' } },
+    'Connecté'),
+  h('div', { class: 's-menu-qui' },
+    h('span', {
+      class: 's-pastille', style: { background: moiCouleur() }
+    }, initiales(etat.moiNom)),
+    h('div', {},
+      h('b', {}, etat.moiNom || '—'),
+      h('small', {}, etat.admin ? 'Administrateur' : 'Technicien de live'))),
   h('div', { class: 's-sep', style: { margin: '8px 4px' } }),
   h('button', {
     class: 's-lien',
-    onclick: () => { menu.remove(); aller('equipe') }
-  }, h('span', { class: 's-lien-ico' }, ico('equipe')), h('span', {}, 'Gérer l’équipe')),
+    onclick: () => { menu.remove(); ouvrirMonMotDePasse() }
+  }, h('span', { class: 's-lien-ico' }, ico('cle')),
+  h('span', {}, 'Changer mon mot de passe')),
+  etat.admin
+    ? h('button', {
+      class: 's-lien',
+      onclick: () => { menu.remove(); aller('equipe') }
+    }, h('span', { class: 's-lien-ico' }, ico('equipe')),
+    h('span', {}, 'Gérer l’équipe'))
+    : null,
+  etat.admin
+    ? h('button', {
+      class: 's-lien', style: { color: 'var(--danger)' },
+      onclick: () => { menu.remove(); toutRemettreAZero() }
+    }, h('span', { class: 's-lien-ico' }, ico('balai')),
+    h('span', {}, 'Tout remettre à zéro'))
+    : null,
+  h('div', { class: 's-sep', style: { margin: '8px 4px' } }),
   h('button', {
-    class: 's-lien', style: { color: 'var(--danger)' },
-    onclick: () => { menu.remove(); toutRemettreAZero() }
-  }, h('span', { class: 's-lien-ico' }, ico('balai')), h('span', {}, 'Tout remettre à zéro')))
+    class: 's-lien',
+    onclick: () => { menu.remove(); deconnecter() }
+  }, h('span', { class: 's-lien-ico' }, ico('sortie')),
+  h('span', {}, 'Se déconnecter')))
 
   document.body.append(menu)
   setTimeout(() => {
@@ -151,11 +163,9 @@ function toutRemettreAZero () {
 async function rejouer (action, message) {
   const fait = await essayer(action, message)
   if (!fait) return
+  // la remise à zéro efface aussi les comptes : on repasse par l'installation
   localStorage.removeItem('suivi-moi')
-  await chargerPersonnes()
-  await majCompteurs()
-  dessinerEntete()
-  dessiner()
+  location.href = '/connexion'
 }
 
 /* -------------------------------------------------------------- thème */
@@ -202,7 +212,6 @@ async function demarrer () {
     dessinerEntete()
     majCompteurs()
   })
-  document.addEventListener('suivi:moi', dessinerEntete)
 
   dessinerNav()
   dessinerEntete()

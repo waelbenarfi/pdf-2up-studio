@@ -2,15 +2,15 @@
 // auteur d'un rapport. Ajout, modification et suppression libres.
 
 import {
-  CONST, api, etat, h, essayer, rafraichir, chargerPersonnes, definirMoi,
-  momentDe, aller
+  CONST, api, etat, h, essayer, rafraichir, chargerPersonnes, ilYA,
+  momentDe, aller, toast
 } from '../noyau.js'
 import {
   carte, vide, tableau, modale, confirmer, champTexte, valeurs,
-  badge, pastille, boutonIco, barreProgres
+  badge, pastille, boutonIco, barreProgres, info
 } from '../ui.js'
-
 import { ico } from '../icones.js'
+
 export async function vueEquipe () {
   const [personnes, bord, journal] = await Promise.all([
     api.get('/personnes'),
@@ -18,14 +18,24 @@ export async function vueEquipe () {
     api.get('/journal', { limite: 25 })
   ])
   const chiffres = new Map(bord.equipe.map(item => [item.id, item]))
+  const sansMdp = personnes.filter(p => p.actif && !p.aMotDePasse)
 
   return [
+    etat.admin && sansMdp.length
+      ? info(`${sansMdp.length} membre(s) n'ont pas encore de mot de passe et `
+        + 'ne peuvent donc pas se connecter : '
+        + sansMdp.map(p => p.nom).join(', ') + '.')
+      : null,
     carte({
-      titre: `Techniciens de live · ${personnes.length}`,
-      sous: 'Tout le monde a le même rôle : recevoir des lives, écrire les '
-        + 'rapports, ouvrir des tickets.',
-      actions: [h('button', { class: 'b primaire', onclick: () => ouvrirPersonne({}) },
-        ico('plus', 15), 'Ajouter un technicien')]
+      titre: `Équipe · ${personnes.length}`,
+      sous: etat.admin
+        ? 'Vous êtes administrateur : vous créez les comptes et posez les '
+          + 'mots de passe.'
+        : 'Seul l’administrateur peut ajouter ou modifier un membre.',
+      actions: etat.admin
+        ? [h('button', { class: 'b primaire', onclick: () => ouvrirPersonne({}) },
+          ico('plus', 15), 'Ajouter un membre')]
+        : []
     },
     personnes.length
       ? h('div', { class: 's-grille k3' }, ...personnes.map(personne =>
@@ -34,8 +44,10 @@ export async function vueEquipe () {
         dessin: 'equipe',
         titre: 'Aucune personne enregistrée',
         texte: 'Commencez par ajouter les techniciens de live qui suivront les séances.',
-        action: h('button', { class: 'b primaire', onclick: () => ouvrirPersonne({}) },
-          ico('plus', 15), 'Ajouter un technicien')
+        action: etat.admin
+          ? h('button', { class: 'b primaire', onclick: () => ouvrirPersonne({}) },
+            ico('plus', 15), 'Ajouter un membre')
+          : null
       })),
     carte({
       titre: 'Dernières actions',
@@ -59,8 +71,13 @@ export async function vueEquipe () {
   ]
 }
 
+const roleDe = (cle) => (CONST.roles || []).find(r => r.cle === cle)
+  || { libelle: cle, ton: 'muted' }
+
 function fiche (personne, chiffres) {
   const moi = etat.moi === personne.id
+  const role = roleDe(personne.role)
+  const peutToucher = etat.admin || moi
   return h('div', {
     class: 's-carte',
     style: { padding: '18px', display: 'flex', flexDirection: 'column', gap: '12px' }
@@ -73,20 +90,137 @@ function fiche (personne, chiffres) {
         personne.fonction || CONST.fonction)),
     moi ? badge('vous', 'accent') : null,
     personne.actif ? null : badge('inactif', 'muted')),
+  h('div', { class: 'b-groupe' },
+    badge(role.libelle, personne.role === 'admin' ? 'accent' : 'muted',
+      ico(personne.role === 'admin' ? 'bouclier' : 'equipe', 12)),
+    personne.aMotDePasse
+      ? badge('peut se connecter', 'ok', ico('cadenas', 12))
+      : badge('sans mot de passe', 'warn', ico('cadenas', 12))),
   personne.email || personne.telephone
     ? h('div', { style: { fontSize: '12.5px', color: 'var(--muted)' } },
         [personne.email, personne.telephone].filter(Boolean).join(' · '))
     : null,
+  personne.derniere
+    ? h('div', { style: { fontSize: '12px', color: 'var(--muted)' } },
+      `Dernière connexion ${ilYA(personne.derniere)}`)
+    : null,
   chiffresLisibles(chiffres),
   h('div', { class: 'b-groupe', style: { marginTop: 'auto' } },
-    moi
+    peutToucher
+      ? h('button', {
+        class: 'b petit',
+        onclick: () => ouvrirMotDePasse({ personne, soiMeme: moi })
+      }, ico('cle', 14), personne.aMotDePasse ? 'Mot de passe' : 'Créer l’accès')
+      : null,
+    etat.admin && !moi
+      ? boutonIco(ico('bouclier'),
+        personne.role === 'admin' ? 'Retirer l’administration' : 'Nommer administrateur',
+        () => basculerRole(personne))
+      : null,
+    peutToucher
+      ? boutonIco(ico('crayon'), 'Modifier', () => ouvrirPersonne({ personne }))
+      : null,
+    etat.admin && !moi
+      ? boutonIco(ico('corbeille'), 'Supprimer',
+        () => supprimerPersonne(personne), 'danger')
+      : null))
+}
+
+/* ------------------------------------------------------- mots de passe */
+/**
+ * L'administrateur pose le mot de passe d'un membre ; chacun change le sien
+ * en donnant l'actuel — sans quoi un poste resté ouvert suffirait à
+ * verrouiller quelqu'un hors de son propre compte.
+ */
+export function ouvrirMotDePasse ({ personne, soiMeme = false }) {
+  const refs = {}
+  const mien = soiMeme && !etat.admin
+  const corps = h('div', { style: { display: 'flex', flexDirection: 'column', gap: '14px' } },
+    mien
+      ? champTexte(refs, 'actuel', 'Mot de passe actuel',
+        { type: 'password', obligatoire: true })
+      : null,
+    champTexte(refs, 'mdp', 'Nouveau mot de passe', {
+      type: 'password', obligatoire: true,
+      aide: `${CONST.mdpMin || 8} caractères au minimum`
+    }),
+    champTexte(refs, 'mdp2', 'Confirmer', { type: 'password', obligatoire: true }),
+    soiMeme
       ? null
-      : h('button', {
-          class: 'b petit',
-          onclick: () => { definirMoi(personne.id); rafraichir() }
-        }, 'Se mettre à sa place'),
-    boutonIco(ico('crayon'), 'Modifier', () => ouvrirPersonne({ personne })),
-    boutonIco(ico('corbeille'), 'Supprimer', () => supprimerPersonne(personne), 'danger')))
+      : info('Transmettez ce mot de passe à ' + personne.nom + ' de vive voix. '
+        + 'Il ou elle pourra le changer ensuite depuis son propre menu.'))
+
+  modale({
+    titre: personne.aMotDePasse ? 'Changer le mot de passe' : 'Créer l’accès',
+    sous: personne.nom,
+    largeur: 'etroite',
+    corps,
+    actions: (fermer) => [
+      etat.admin && !soiMeme && personne.aMotDePasse
+        ? h('button', {
+          class: 'b danger',
+          onclick: () => { fermer(); retirerAcces(personne) }
+        }, 'Retirer l’accès')
+        : null,
+      h('div', { class: 'droite' },
+        h('button', { class: 'b', onclick: fermer }, 'Annuler'),
+        h('button', {
+          class: 'b primaire',
+          onclick: async (e) => {
+            const v = valeurs(refs)
+            if (v.mdp !== v.mdp2) {
+              toast('Les deux mots de passe diffèrent.', 'err')
+              return
+            }
+            e.target.disabled = true
+            const fait = await essayer(
+              () => api.post(`/personnes/${personne.id}/mdp`,
+                { mdp: v.mdp, actuel: v.actuel || '' }),
+              'Mot de passe enregistré.')
+            e.target.disabled = false
+            if (!fait) return
+            fermer()
+            await chargerPersonnes()
+            rafraichir()
+          }
+        }, 'Enregistrer'))
+    ]
+  })
+}
+
+function retirerAcces (personne) {
+  confirmer({
+    titre: 'Retirer l’accès ?',
+    texte: `${personne.nom} ne pourra plus se connecter tant qu'un nouveau `
+      + 'mot de passe ne lui aura pas été donné. Ses rapports et ses séances '
+      + 'restent intacts.',
+    bouton: 'Retirer l’accès',
+    surOui: async () => {
+      await essayer(() => api.del(`/personnes/${personne.id}/mdp`),
+        'Accès retiré.')
+      await chargerPersonnes()
+      rafraichir()
+    }
+  })
+}
+
+function basculerRole (personne) {
+  const vers = personne.role === 'admin' ? 'technicien' : 'admin'
+  confirmer({
+    titre: vers === 'admin' ? 'Nommer administrateur ?' : 'Retirer l’administration ?',
+    texte: vers === 'admin'
+      ? `${personne.nom} pourra gérer l'équipe, poser les mots de passe, `
+        + 'supprimer des séances et des rapports.'
+      : `${personne.nom} redeviendra technicien de live et perdra la gestion `
+        + 'de l’équipe.',
+    bouton: vers === 'admin' ? 'Nommer' : 'Retirer',
+    surOui: async () => {
+      await essayer(() => api.post(`/personnes/${personne.id}/role`, { role: vers }),
+        'Rôle modifié.')
+      await chargerPersonnes()
+      rafraichir()
+    }
+  })
 }
 
 /** Un taux n'a de sens que si la personne a eu des séances à suivre. */

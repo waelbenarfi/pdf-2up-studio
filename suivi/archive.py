@@ -129,11 +129,39 @@ def texte_rapport(rapport):
         lignes += ["", "-- Eleves concernes " + "-" * 38, rapport["eleves"]]
     if rapport.get("commentaires"):
         lignes += ["", "-- Commentaires " + "-" * 42, rapport["commentaires"]]
+
+    etapes = rapport.get("etapes") or ()
+    if etapes:
+        faits = len([e for e in etapes if e.get("fait")])
+        lignes += ["", "-- Etapes de la seance (%d/%d) " % (faits, len(etapes))
+                   + "-" * 26]
+        for etape in etapes:
+            lignes.append("[%s] %-46s %s" % (
+                "x" if etape.get("fait") else " ", etape.get("libelle", ""),
+                ("%s par %s" % (etape.get("fait_le"), etape.get("fait_par"))
+                 if etape.get("fait") else "non faite")))
+            for note in etape.get("notes") or ():
+                lignes.append("      \"%s\"  - %s, %s" % (
+                    note.get("texte", ""), note.get("auteur", "-"),
+                    note.get("cree_le", "")))
+
+    trace = rapport.get("historique") or ()
+    if trace:
+        lignes += ["", "-- Tracabilite " + "-" * 43]
+        for ligne in trace:
+            lignes.append("%s  %-18s %s%s" % (
+                ligne.get("quand", ""), ligne.get("qui", "-"),
+                ligne.get("action", ""),
+                (" : " + ligne["detail"]) if ligne.get("detail") else ""))
     return "\n".join(lignes) + "\n"
 
 
-def assurer_rapport(rapport):
-    """Cree le dossier du rapport et (re)ecrit le PDF et le texte."""
+def assurer_rapport(rapport, etapes=(), historique=()):
+    """Cree le dossier du rapport et (re)ecrit le PDF et le texte.
+
+    Les etapes et la tracabilite sont passees par l'appelant : les calculer
+    ici demanderait d'importer service, qui importe deja archive.
+    """
     from . import pdf
 
     relatif = rapport.get("dossier") or chemin_rapport(rapport)
@@ -143,7 +171,8 @@ def assurer_rapport(rapport):
     nom_pdf = nom_sur(rapport["reference"]) + ".pdf"
     try:
         with open(os.path.join(dossier, nom_pdf), "wb") as fh:
-            fh.write(pdf.construire(rapport))
+            fh.write(pdf.construire(rapport, rapport.get("fichiers") or (),
+                                    etapes, historique))
     except Exception as exc:                    # jamais bloquant
         with open(os.path.join(dossier, "erreur-pdf.txt"), "w",
                   encoding="utf-8") as fh:

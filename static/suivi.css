@@ -30,6 +30,30 @@
 
 body.suivi { margin: 0; }
 
+/* ---------------------------------------------------- connexion ------- */
+body.connexion { display: grid; place-items: center; min-height: 100vh; }
+.s-connexion { width: 100%; padding: 24px; display: grid; place-items: center; }
+.s-connexion-carte {
+  width: 100%; max-width: 390px; display: flex; flex-direction: column;
+  gap: 15px; padding: 28px; border-radius: var(--r-lg);
+  border: 1px solid var(--line); background: var(--surface);
+  box-shadow: var(--ombre-carte);
+}
+.s-connexion-marque { display: flex; align-items: center; gap: 12px; }
+.s-connexion-marque strong { display: block; font-size: 15px;
+  letter-spacing: -.2px; }
+.s-connexion-marque span { font-size: 11.5px; color: var(--muted); }
+.s-connexion-carte h1 { font-size: 19px; letter-spacing: -.3px; margin: 6px 0 0; }
+.s-connexion-aide { font-size: 12.5px; color: var(--muted); line-height: 1.55;
+  margin: 0; }
+.s-connexion-carte .s-champ span { font-size: 12px; font-weight: 600;
+  color: var(--muted); }
+.s-connexion-erreur {
+  margin: 0; font-size: 12.5px; padding: 10px 12px; border-radius: var(--r-sm);
+  color: var(--danger); background: color-mix(in srgb, var(--danger) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 32%, transparent);
+}
+
 /* ---------------------------------------------------- structure ------- */
 .s-app {
   display: grid;

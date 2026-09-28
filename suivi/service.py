@@ -85,10 +85,20 @@ def _horodate(date_iso, heure):
 
 # ================================================================ personnes
 def personnes(actifs_seulement=False):
-    sql = "SELECT * FROM personnes"
+    """L'equipe, avec son role et le fait d'avoir un mot de passe ou non.
+
+    Le mot de passe lui-meme ne sort jamais d'ici — seulement s'il existe,
+    de quoi afficher « compte actif » ou « à créer ».
+    """
+    sql = ("SELECT p.*, COALESCE(c.role, 'technicien') AS role,"
+           " CASE WHEN COALESCE(c.mdp, '') != '' THEN 1 ELSE 0 END AS aMotDePasse,"
+           " COALESCE(c.derniere, '') AS derniere,"
+           " COALESCE(c.maj_le, '') AS mdp_maj_le,"
+           " COALESCE(c.maj_par, '') AS mdp_maj_par"
+           " FROM personnes p LEFT JOIN comptes c ON c.personne_id = p.id")
     if actifs_seulement:
-        sql += " WHERE actif = 1"
-    return db.tous(sql + " ORDER BY actif DESC, nom")
+        sql += " WHERE p.actif = 1"
+    return db.tous(sql + " ORDER BY p.actif DESC, p.nom")
 
 
 def creer_personne(valeurs, par=""):
@@ -102,6 +112,11 @@ def creer_personne(valeurs, par=""):
         "actif": 1 if valeurs.get("actif", True) else 0,
         "cree_le": db.maintenant(),
     })
+    # toute personne a un compte des sa creation, mot de passe encore vide :
+    # l'administrateur le posera, et rien ne se connecte sans mot de passe
+    db.inserer("comptes", {"personne_id": ident, "role": "technicien",
+                           "mdp": "", "mdp_le": "", "maj_le": "",
+                           "maj_par": "", "derniere": ""})
     journaliser("Ajout d'un membre", nom, "", par)
     return db.un("SELECT * FROM personnes WHERE id = ?", (ident,))
 
@@ -572,7 +587,7 @@ def creer_rapport(valeurs, par=""):
         _poser_tache(live_id, schema.TACHE_RAPPORT, True,
                      par or champs["responsable_nom"])
     complet = rapport(ident)
-    archive.assurer_rapport(complet)
+    _archiver(complet)
     journaliser("Rapport envoyé", complet["reference"],
                 "%s · %s" % (complet["nom_live"], complet["etat"]), par)
     return rapport(ident)
@@ -592,7 +607,7 @@ def modifier_rapport(ident, valeurs, par=""):
     complet["dossier"] = ancien.get("dossier", "")
     archive.deplacer_si_besoin(complet)
     db.modifier("rapports", ident, {"dossier": complet["dossier"]})
-    archive.assurer_rapport(complet)
+    _archiver(complet)
     journaliser("Rapport modifié", complet["reference"], "", par)
     return rapport(ident)
 
@@ -615,12 +630,51 @@ def supprimer_rapport(ident, par=""):
     return {"supprime": True}
 
 
+def historique_seance(complet):
+    """Tout ce qui a été fait sur cette séance et sur son rapport.
+
+    Le journal est tenu par cible : le titre de la séance pour les étapes et
+    les commentaires, la référence du rapport pour son envoi et ses
+    corrections. Les deux réunis donnent la trace complète, qui a fait quoi
+    et quand.
+    """
+    cibles, params = [], []
+    if complet.get("reference"):
+        cibles.append("cible = ?")
+        params.append(complet["reference"])
+    if complet.get("live_id"):
+        seance = db.un("SELECT titre FROM lives WHERE id = ?",
+                       (complet["live_id"],))
+        if seance:
+            cibles.append("cible = ?")
+            params.append(seance["titre"])
+    if not cibles:
+        return []
+    return db.tous("SELECT * FROM journal WHERE %s ORDER BY id"
+                   % " OR ".join(cibles), params)
+
+
+def etapes_rapport(complet):
+    """Les étapes de la séance liée, ou rien si le rapport est libre."""
+    return taches_de(complet["live_id"]) if complet.get("live_id") else []
+
+
+def _archiver(complet):
+    """Ecrit le dossier du rapport avec ses etapes et sa tracabilite."""
+    complet["etapes"] = etapes_rapport(complet)
+    complet["historique"] = historique_seance(complet)
+    return archive.assurer_rapport(complet, complet["etapes"],
+                                   complet["historique"])
+
+
 def pdf_rapport(ident):
     from . import pdf
     complet = rapport(ident)
     if not complet:
         raise Refus("Rapport introuvable.")
-    return complet, pdf.construire(complet, complet["fichiers"])
+    return complet, pdf.construire(complet, complet["fichiers"],
+                                   etapes_rapport(complet),
+                                   historique_seance(complet))
 
 
 # ================================================================= fichiers
@@ -640,7 +694,7 @@ def ajouter_fichier(cible, cible_id, nom, contenu, par=""):
         parent = rapport(cible_id)
         if not parent:
             raise Refus("Rapport introuvable.")
-        relatif, _ = archive.assurer_rapport(parent)
+        relatif, _ = _archiver(parent)
     else:
         parent = db.un("SELECT * FROM tickets WHERE id = ?", (cible_id,))
         if not parent:

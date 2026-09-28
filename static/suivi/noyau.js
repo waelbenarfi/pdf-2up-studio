@@ -45,8 +45,10 @@ export function remplir (noeud, ...enfants) {
 export const $ = (selecteur, racine = document) => racine.querySelector(selecteur)
 
 /* --------------------------------------------------------------- reseau */
+// Plus d'en-tête d'identité : le serveur sait qui parle par la session, et
+// une en-tête envoyée par le navigateur ne prouvait rien.
 async function appel (url, options = {}) {
-  const entetes = { 'X-Suivi-Qui': encodeURIComponent(etat.moiNom || '') }
+  const entetes = {}
   if (options.body && !(options.body instanceof FormData)) {
     entetes['Content-Type'] = 'application/json'
     options.body = JSON.stringify(options.body)
@@ -54,6 +56,12 @@ async function appel (url, options = {}) {
   const reponse = await fetch(url, { ...options, headers: { ...entetes, ...options.headers } })
   let charge = null
   try { charge = await reponse.json() } catch (_) { /* pdf, csv... */ }
+
+  // session expirée : rester sur un écran qui ne répond plus n'aide personne
+  if (reponse.status === 401) {
+    location.href = '/connexion?suite=' + encodeURIComponent(location.pathname)
+    throw new Error('Session expirée.')
+  }
   if (!reponse.ok || (charge && charge.ok === false)) {
     throw new Error((charge && charge.erreur) || 'Le serveur a refusé la demande.')
   }
@@ -81,28 +89,30 @@ export const api = {
 }
 
 /* ----------------------------------------------------------------- etat */
+// `moi` est posé par le serveur au rendu de la page ; l'écran ne le choisit
+// plus. `admin` commande ce qui s'affiche, mais c'est le serveur qui refuse :
+// cacher un bouton n'est pas une permission.
+const CONNECTE = window.SUIVI_MOI || null
+
 export const etat = {
   personnes: [],
-  moi: null,
-  moiNom: '',
+  moi: CONNECTE ? CONNECTE.id : null,
+  moiNom: CONNECTE ? CONNECTE.nom : '',
+  admin: !!(CONNECTE && CONNECTE.admin),
   compteurs: { sansRapport: 0, tickets: 0 }
 }
 
 export async function chargerPersonnes () {
   etat.personnes = await api.get('/personnes')
-  const garde = Number(localStorage.getItem('suivi-moi'))
-  const trouve = etat.personnes.find(p => p.id === garde) ||
-    etat.personnes.find(p => p.actif) || etat.personnes[0] || null
-  definirMoi(trouve ? trouve.id : null)
   return etat.personnes
 }
 
-export function definirMoi (id) {
-  const personne = etat.personnes.find(p => p.id === id) || null
-  etat.moi = personne ? personne.id : null
-  etat.moiNom = personne ? personne.nom : ''
-  if (personne) localStorage.setItem('suivi-moi', String(personne.id))
-  document.dispatchEvent(new CustomEvent('suivi:moi'))
+export const moiMeme = () => etat.personnes.find(p => p.id === etat.moi) || null
+
+export async function deconnecter () {
+  try { await api.post('/deconnexion') } catch (_) { /* on part quand même */ }
+  localStorage.removeItem('suivi-moi')
+  location.href = '/connexion'
 }
 
 export const personneDe = (id) => etat.personnes.find(p => p.id === id) || null

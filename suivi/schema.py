@@ -123,10 +123,27 @@ PRIORITES = [
 ]
 
 # ---------------------------------------------------------------- equipe
-# Un seul role : toute personne enregistree est technicienne de live, et
-# peut donc recevoir des seances, ecrire des rapports et ouvrir des tickets.
+# Tout le monde suit les lives ; ce qui distingue l'administrateur, c'est ce
+# qu'il peut faire en plus : gerer l'equipe, poser les mots de passe, effacer.
 FONCTION = "Technicien de live"
 FONCTIONS = [FONCTION]
+
+ROLES = [
+    {"cle": "admin", "libelle": "Administrateur", "ton": "accent",
+     "aide": "Gère l'équipe et les mots de passe, peut tout modifier"},
+    {"cle": "technicien", "libelle": "Technicien de live", "ton": "muted",
+     "aide": "Suit les séances, écrit les rapports, ouvre des tickets"},
+]
+CLES_ROLES = [item["cle"] for item in ROLES]
+
+# A qui revient l'administration si personne ne l'a encore. Au premier
+# demarrage apres la mise a jour, la personne qui porte ce nom devient
+# administratrice ; a defaut, la plus anciennement enregistree.
+ADMIN_PAR_DEFAUT = "Oussama Mzali"
+
+# Un mot de passe trop court se devine ; au-dela de la longueur, rien n'est
+# impose : une regle compliquee pousse a le noter sur un papier.
+MDP_MIN = 8
 
 COULEURS = ["#6f7cff", "#22d3ee", "#34d399", "#fbbf24", "#f97066",
             "#c084fc", "#fb923c", "#38bdf8", "#a3e635"]
@@ -144,13 +161,13 @@ TAILLE_MAX_MO = 50
 # Tables videes par « Tout remettre a zero » (dans cet ordre : les enfants
 # d'abord, pour ne pas heurter les cles etrangeres).
 TABLES_DONNEES = ["messages", "fichiers", "tickets", "notes", "taches",
-                  "rapports", "lives", "personnes", "journal"]
+                  "comptes", "rapports", "lives", "personnes", "journal"]
 
 # Tables dont la cle primaire est un entier auto-incremente. `parametres` est
 # la seule a en etre depourvue : sa cle est un texte. La distinction sert a
 # savoir ou ajouter un RETURNING id sous PostgreSQL.
 TABLES_ID = ["personnes", "lives", "rapports", "fichiers", "tickets",
-             "messages", "journal", "taches", "notes"]
+             "messages", "journal", "taches", "notes", "comptes"]
 
 
 DDL = """
@@ -293,10 +310,26 @@ CREATE TABLE IF NOT EXISTS notes (
   cree_le TEXT    NOT NULL
 );
 CREATE INDEX IF NOT EXISTS i_notes_live_cle ON notes(live_id, cle);
+
+-- `mdp_le` date le mot de passe et sert de version a la session : le changer
+-- ferme les sessions ouvertes ailleurs. `maj_le` date le compte en general
+-- (role compris) et n'a pas cet effet -- sans quoi nommer quelqu'un
+-- administrateur le deconnecterait sur-le-champ.
+CREATE TABLE IF NOT EXISTS comptes (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  personne_id INTEGER NOT NULL REFERENCES personnes(id) ON DELETE CASCADE,
+  role        TEXT    NOT NULL DEFAULT 'technicien',
+  mdp         TEXT    NOT NULL DEFAULT '',
+  mdp_le      TEXT    NOT NULL DEFAULT '',
+  maj_le      TEXT    NOT NULL DEFAULT '',
+  maj_par     TEXT    NOT NULL DEFAULT '',
+  derniere    TEXT    NOT NULL DEFAULT ''
+);
+CREATE UNIQUE INDEX IF NOT EXISTS i_comptes_personne ON comptes(personne_id);
 """
 
 # Consultees au demarrage pour savoir s'il reste quelque chose a creer.
-TABLES_AJOUTEES = ["taches", "notes"]
+TABLES_AJOUTEES = ["taches", "notes", "comptes"]
 
 # Un commentaire est libre mais pas sans fin : au-dela, c'est un rapport.
 NOTE_MAX = 1000
@@ -345,6 +378,8 @@ def constantes():
         "moments": MOMENTS,
         "tacheRapport": TACHE_RAPPORT,
         "noteMax": NOTE_MAX,
+        "roles": ROLES,
+        "mdpMin": MDP_MIN,
         "fonction": FONCTION,
         "couleurs": COULEURS,
         "mois": MOIS_ACCENT,

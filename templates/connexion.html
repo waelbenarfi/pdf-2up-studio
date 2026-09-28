@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connexion &middot; Espace technique Wael Academy</title>
+<link rel="icon" type="image/svg+xml" href="/static/wael/emblem.svg">
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/suivi.css">
+</head>
+<body class="suivi connexion">
+
+<main class="s-connexion">
+  <form class="s-connexion-carte" id="forme" autocomplete="on">
+    <div class="s-connexion-marque">
+      <span class="s-logo-mark">
+        <img src="/static/wael/emblem-white.svg" alt="Wael Academy" width="30">
+      </span>
+      <div>
+        <strong>Espace technique</strong>
+        <span>Wael Academy</span>
+      </div>
+    </div>
+
+    {% if installation %}
+      <h1>Première configuration</h1>
+      <p class="s-connexion-aide">
+        Aucun mot de passe n&rsquo;est encore défini.
+        {% if equipe_vide %}
+          Créez le compte administrateur : cette page ne se représentera plus.
+        {% else %}
+          Choisissez le mot de passe de <b>{{ admin }}</b>, administrateur de
+          l&rsquo;espace. Cette page ne se représentera plus ensuite.
+        {% endif %}
+      </p>
+      {% if equipe_vide %}
+        <label class="s-champ">
+          <span>Nom de l&rsquo;administrateur</span>
+          <input name="nom" id="nom" required autocomplete="name"
+                 placeholder="Ex. Oussama Mzali">
+        </label>
+      {% endif %}
+    {% else %}
+      <h1>Connexion</h1>
+      <p class="s-connexion-aide">
+        Choisissez votre nom et saisissez le mot de passe que
+        l&rsquo;administrateur vous a remis.
+      </p>
+      <label class="s-champ">
+        <span>Qui êtes-vous ?</span>
+        <select name="personne_id" id="personne" autocomplete="username"></select>
+      </label>
+    {% endif %}
+
+    <label class="s-champ">
+      <span>Mot de passe</span>
+      <input type="password" name="mdp" id="mdp" required
+             autocomplete="{{ 'new-password' if installation else 'current-password' }}">
+    </label>
+
+    {% if installation %}
+      <label class="s-champ">
+        <span>Confirmer le mot de passe</span>
+        <input type="password" id="mdp2" required autocomplete="new-password">
+      </label>
+    {% endif %}
+
+    <p class="s-connexion-erreur" id="erreur" hidden></p>
+
+    <button class="b primaire large" id="envoyer" type="submit">
+      {{ 'Créer le compte administrateur' if installation else 'Se connecter' }}
+    </button>
+  </form>
+</main>
+
+<script>
+  const INSTALLATION = {{ 'true' if installation else 'false' }}
+  const suite = new URLSearchParams(location.search).get('suite') || '/operations'
+  const erreur = document.getElementById('erreur')
+  const envoyer = document.getElementById('envoyer')
+
+  const montrer = (texte) => {
+    erreur.textContent = texte
+    erreur.hidden = !texte
+  }
+
+  async function poster (chemin, corps) {
+    const reponse = await fetch(chemin, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(corps)
+    })
+    const charge = await reponse.json().catch(() => null)
+    if (!reponse.ok || !charge || charge.ok === false) {
+      throw new Error((charge && charge.erreur) || 'Connexion impossible.')
+    }
+    return charge.donnees
+  }
+
+  async function chargerPersonnes () {
+    const liste = document.getElementById('personne')
+    if (!liste) return
+    try {
+      const data = await (await fetch('/api/suivi/etat-connexion')).json()
+      const gens = (data.donnees || {}).personnes || []
+      if (!gens.length) {
+        montrer("Aucun compte n'a encore de mot de passe. " +
+                "Demandez à l'administrateur de vous en créer un.")
+        envoyer.disabled = true
+        return
+      }
+      liste.replaceChildren(...gens.map(p => {
+        const option = document.createElement('option')
+        option.value = p.id
+        option.textContent = p.nom
+        return option
+      }))
+      // on revient en général sous le même nom que la dernière fois
+      const garde = localStorage.getItem('suivi-dernier')
+      if (garde && gens.some(p => String(p.id) === garde)) liste.value = garde
+    } catch (_) {
+      montrer('Le serveur ne répond pas.')
+    }
+  }
+
+  document.getElementById('forme').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    montrer('')
+    const mdp = document.getElementById('mdp').value
+    envoyer.disabled = true
+    try {
+      if (INSTALLATION) {
+        const mdp2 = document.getElementById('mdp2').value
+        if (mdp !== mdp2) throw new Error('Les deux mots de passe diffèrent.')
+        const nomChamp = document.getElementById('nom')
+        await poster('/api/suivi/installer',
+          { mdp, nom: nomChamp ? nomChamp.value : '' })
+      } else {
+        const id = document.getElementById('personne').value
+        const qui = await poster('/api/suivi/connexion',
+          { personne_id: Number(id), mdp })
+        localStorage.setItem('suivi-dernier', String(qui.id))
+        localStorage.setItem('suivi-moi', String(qui.id))
+      }
+      location.href = suite
+    } catch (erreurAttrapee) {
+      montrer(erreurAttrapee.message)
+      envoyer.disabled = false
+    }
+  })
+
+  chargerPersonnes()
+</script>
+</body>
+</html>

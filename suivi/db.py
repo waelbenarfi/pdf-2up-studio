@@ -17,6 +17,7 @@ Une connexion par requete HTTP, refermee automatiquement a la fin.
 import datetime
 import os
 import re
+import secrets
 import sqlite3
 
 from flask import g
@@ -318,6 +319,40 @@ def _initialiser_postgres(avec_demo):
             from . import demo
             demo.remplir(cnx)
         cnx.commit()          # libere aussi le verrou
+    finally:
+        cnx.close()
+
+
+def secret():
+    """La cle qui signe les cookies de session, stable et partagee.
+
+    Elle vit en base et non dans une variable d'environnement : en
+    serverless chaque demarrage a froid est un nouveau processus, et une cle
+    tiree au hasard a chaque fois deconnecterait tout le monde en
+    permanence. La base est le seul endroit que toutes les instances
+    partagent.
+    """
+    cnx = _ouvrir()
+    try:
+        trouve = cnx.execute(
+            "SELECT valeur FROM parametres WHERE cle = 'secret'").fetchone()
+        if trouve and trouve["valeur"]:
+            return trouve["valeur"]
+
+        neuf = secrets.token_hex(32)
+        # deux instances peuvent demarrer ensemble : la premiere pose la cle,
+        # la seconde ne l'ecrase pas et relit celle qui a gagne
+        if POSTGRES:
+            cnx.execute("INSERT INTO parametres (cle, valeur)"
+                        " VALUES ('secret', ?) ON CONFLICT (cle) DO NOTHING",
+                        (neuf,))
+        else:
+            cnx.execute("INSERT OR IGNORE INTO parametres (cle, valeur)"
+                        " VALUES ('secret', ?)", (neuf,))
+        cnx.commit()
+        pose = cnx.execute(
+            "SELECT valeur FROM parametres WHERE cle = 'secret'").fetchone()
+        return (pose or {}).get("valeur") or neuf
     finally:
         cnx.close()
 

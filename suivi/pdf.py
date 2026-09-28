@@ -270,8 +270,13 @@ class Feuille(object):
         return data
 
 
-def construire(rapport, fichiers=()):
-    """Renvoie les octets du PDF du rapport."""
+def construire(rapport, fichiers=(), etapes=(), historique=()):
+    """Renvoie les octets du PDF du rapport.
+
+    `etapes` et `historique` portent la traçabilité demandée : chaque étape
+    avec qui l'a faite et quand, puis le relevé de tout ce qui a été touché
+    sur la séance et sur le rapport.
+    """
     etats = schema.par_cle(schema.ETATS)
     etat = etats.get(rapport.get("etat"), etats["normale"])
     couleur = TONS.get(etat["ton"], TONS["info"])
@@ -330,6 +335,42 @@ def construire(rapport, fichiers=()):
             feuille.texte("•  %s  (%.0f Ko)" % (fichier["nom"],
                                                 fichier["taille"] / 1024.0),
                           taille=10, saut=2)
+
+    # ------------------------------------------------ etapes de la seance
+    if etapes:
+        faites = [e for e in etapes if e.get("fait")]
+        feuille.section("Étapes de la séance  (%d/%d)"
+                        % (len(faites), len(etapes)))
+        for etape in etapes:
+            if etape.get("fait"):
+                marque = "[x]"
+                suite = "%s — %s" % (_fr(etape.get("fait_le")),
+                                     etape.get("fait_par") or "—")
+                ton = None
+            else:
+                marque = "[ ]"
+                suite = "non faite"
+                ton = TONS["warn"]
+            feuille.texte("%s  %s" % (marque, etape.get("libelle", "")),
+                          taille=10, saut=1, couleur=ton)
+            feuille.texte("       %s" % suite, taille=9, couleur=GRIS, saut=3)
+            for note in etape.get("notes") or []:
+                feuille.texte("       « %s »  — %s, %s"
+                              % (note.get("texte", ""), note.get("auteur", "—"),
+                                 _fr(note.get("cree_le"))),
+                              taille=9, couleur=GRIS, saut=3)
+
+    # --------------------------------------------------- qui a fait quoi
+    if historique:
+        feuille.section("Traçabilité")
+        for ligne in historique:
+            detail = " · ".join(
+                str(ligne.get(cle) or "") for cle in ("action", "detail")
+                if str(ligne.get(cle) or "").strip())
+            feuille.texte("%s  —  %s" % (_fr(ligne.get("quand")),
+                                         ligne.get("qui") or "—"),
+                          taille=9.5, saut=1)
+            feuille.texte("       %s" % detail, taille=9, couleur=GRIS, saut=3)
 
     feuille.trait(14)
     feuille.couples([

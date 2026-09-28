@@ -44,7 +44,12 @@
 <div class="s-toasts" id="toasts"></div>
 <div id="calques"></div>
 
-<script>window.SUIVI = {{ constantes | tojson }};</script>
+<script>
+  window.SUIVI = {{ constantes | tojson }};
+  // Qui est connecté vient du serveur, jamais du navigateur : avant, chacun
+  // se déclarait lui-même et pouvait signer à la place d'un autre.
+  window.SUIVI_MOI = {{ moi | tojson }};
+</script>
 <script type="module" src="/static/suivi/app.js"></script>
 </body>
 </html>

@@ -28,10 +28,14 @@ export function boutonAppel (numero, taille = 14) {
 }
 
 export async function vueProfesseurs (params) {
-  const liste = await api.get('/professeurs')
+  const [liste, fiabilite] = await Promise.all([
+    api.get('/professeurs'),
+    api.get('/professeurs/fiabilite', { jours: 90 })
+  ])
   const sans = liste.filter(p => p.actif && !p.telephone)
 
   return [
+    releve(fiabilite),
     etat.admin && sans.length
       ? info(`${sans.length} professeur(s) sans numéro : `
         + sans.map(p => p.nom).join(', ') + '. L’étape « appeler le '
@@ -86,6 +90,44 @@ export async function vueProfesseurs (params) {
           : null
       }))
   ]
+}
+
+/**
+ * Ce que disent les rapports, une fois additionnés par professeur.
+ *
+ * Vous écrivez un rapport par séance depuis des mois ; personne ne les
+ * relit à l'envers. Regroupés, ils répondent à la seule question utile :
+ * avec qui les séances se passent-elles mal, et à quelle fréquence ?
+ */
+function releve (fiabilite) {
+  const liste = (fiabilite.professeurs || []).filter(p => p.rapports)
+  const signales = liste.filter(p => p.absences || p.graves || p.part >= 30)
+  if (!liste.length) return null
+
+  return carte({
+    titre: 'Ce que disent les rapports',
+    sous: `${liste.length} professeur(s) · ${fiabilite.jours} derniers jours`
+      + ' · séances sans rapport exclues'
+  },
+  signales.length
+    ? h('div', { class: 's-liste' }, ...signales.map(p =>
+      h('div', { class: `s-item ${p.absences ? 'alerte' : ''}` },
+        h('div', { class: 'corps' },
+          h('b', {}, p.nom),
+          h('small', {}, `${p.soucis}/${p.rapports} séance(s) avec un `
+            + `problème signalé · ${p.part} %`)),
+        h('div', { class: 'droite' },
+          p.absences
+            ? badge(`${p.absences} absence(s)`, 'danger', ico('croix_cercle', 12))
+            : null,
+          p.graves
+            ? badge(`${p.graves} problème(s) important(s)`, 'warn',
+              ico('alerte', 12))
+            : null,
+          boutonAppel(p.telephone, 12)))))
+    : info('Aucun professeur ne ressort sur la période : pas d’absence, pas '
+      + 'de problème important, et moins de 30 % de séances avec incident '
+      + 'pour chacun.'))
 }
 
 export function ouvrirProfesseur ({ prof = null, apres = null } = {}) {

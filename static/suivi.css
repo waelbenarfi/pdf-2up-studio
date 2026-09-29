@@ -747,6 +747,69 @@ table.s-tableau { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   margin: 2px 0 4px; }
 .s-perf-poids small { font-size: 11px; color: var(--muted); line-height: 1.4; }
 
+/* ---------------------------------------------------- ce soir -------- */
+.s-soir-liste { display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); }
+.s-soir-carte {
+  border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px 16px;
+  background: var(--surface); display: flex; flex-direction: column; gap: 10px;
+}
+/* la séance en cours passe devant : c'est celle qu'on surveille */
+.s-soir-carte.encours {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.s-soir-carte.bientot {
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+.s-soir-carte.finie { opacity: .82; }
+
+.s-soir-tete { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.s-soir-tete .droite { margin-left: auto; }
+.s-soir-quand { display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 650; color: var(--muted); }
+.s-soir-quand.encours { color: var(--accent); }
+.s-soir-quand.bientot { color: var(--warn); }
+.s-soir-quand.finie { color: var(--ok); }
+.s-soir-titre { font-size: 14px; line-height: 1.35; letter-spacing: -.1px; }
+.s-soir-qui { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  color: var(--muted); font-size: 12px; }
+
+/* l'action du moment, plus lisible que tout le reste de la carte */
+.s-soir-action {
+  display: flex; align-items: center; gap: 11px;
+  padding: 11px 12px; border-radius: var(--r-sm);
+  background: var(--surface-2);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
+}
+.s-soir-action .marque {
+  width: 32px; height: 32px; border-radius: 9px; flex: none;
+  display: grid; place-items: center; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+}
+.s-soir-action .quoi { flex: 1; min-width: 0; }
+.s-soir-action .quoi small { display: block; font-size: 10.5px;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .5px;
+  font-weight: 700; }
+.s-soir-action .quoi b { display: block; font-size: 13.5px; margin-top: 2px; }
+.s-soir-fini { display: flex; align-items: center; gap: 8px; font-size: 12.5px;
+  color: var(--ok); font-weight: 600; padding: 4px 0; }
+.s-soir-outils { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; }
+.s-horloge { display: inline-flex; align-items: center; gap: 6px;
+  font-family: ui-monospace, Consolas, monospace; font-size: 13px;
+  font-weight: 700; padding: 6px 10px; border-radius: 8px;
+  background: var(--surface-2); }
+
+/* une case à cocher qui se lit : le libellé fait partie de la cible */
+.s-coche { display: flex; align-items: flex-start; gap: 10px; cursor: pointer;
+  padding: 11px 13px; border-radius: var(--r-sm); background: var(--surface);
+  border: 1px solid var(--line); }
+.s-coche:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.s-coche input { width: 18px; height: 18px; margin: 1px 0 0; flex: none;
+  accent-color: var(--accent); cursor: pointer; }
+.s-coche b { display: block; font-size: 13px; }
+.s-coche small { display: block; font-size: 11.5px; color: var(--muted);
+  margin-top: 2px; }
+
 /* ------------------------------------------------ professeurs -------- */
 /* Le numéro se compose d'un doigt : sur un téléphone, c'est le geste que
    le technicien fait le plus souvent. */

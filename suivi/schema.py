@@ -427,6 +427,10 @@ COLONNES_AJOUTEES = [
     # `formateur` reste le nom affiche ; `professeur_id` est le lien vers la
     # fiche, donc vers le numero de telephone.
     ("lives", "professeur_id", "INTEGER"),
+    # « Le professeur ne s'est pas presente » vivait dans la description, en
+    # texte libre : impossible a compter. C'est pourtant ce qu'on veut savoir
+    # d'un professeur au bout de trois mois.
+    ("rapports", "absent_prof", "INTEGER"),
 ]
 
 # Rattachement des lignes deja ecrites : le nom est ce qu'on a.

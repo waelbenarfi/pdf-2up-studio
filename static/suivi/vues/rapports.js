@@ -257,6 +257,20 @@ export function ouvrirFormulaire ({ rapport = null, live = null, apres = null } 
     }
   })
 
+  // Question à part, et non une phrase noyée dans la description : c'est
+  // ce qui permet de dire, trois mois plus tard, « ce professeur a manqué
+  // quatre séances ».
+  const boiteAbsent = h('input', {
+    type: 'checkbox', checked: !!base.absent_prof
+  })
+  refs.absent_prof = {
+    get value () { return boiteAbsent.checked ? 1 : 0 }
+  }
+  const champAbsent = h('label', { class: 's-coche' }, boiteAbsent,
+    h('span', {},
+      h('b', {}, 'Le professeur ne s’est pas présenté'),
+      h('small', {}, 'Compté sur sa fiche, pour voir si cela se répète')))
+
   const aide = h('p', { class: 's-info' })
   const majAide = (cle) => {
     aide.textContent = cle === 'normale'
@@ -310,6 +324,7 @@ export function ouvrirFormulaire ({ rapport = null, live = null, apres = null } 
       },
       champLEtat,
       aide,
+      champAbsent,
       champUrgence,
       champDescription,
       champActions),

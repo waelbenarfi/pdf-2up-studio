@@ -24,6 +24,52 @@ le bleu qui ressort dessus.
 
 ---
 
+## Ce soir
+
+Le premier écran de la barre. Il ne sert pas à consulter un planning : il
+sert **pendant** que trois lives tournent en même temps, un téléphone dans la
+main.
+
+Les séances du jour, dans l'ordre des heures, chacune avec :
+
+* où elle en est — *terminée*, *en cours* (encadrée, c'est celle qu'on
+  surveille), *dans 38 min* ;
+* le professeur et son **numéro en bouton d'appel** ;
+* **une seule action mise en avant** : la prochaine étape non faite, avec un
+  bouton *C'est fait*.
+
+Un clic part **tout de suite**. Ailleurs on valide en bloc ; ici non — on
+coche parce qu'on vient de le faire, souvent entre deux gestes. L'étape du
+rapport n'y est jamais proposée comme une case : elle ouvre le formulaire.
+
+L'heure se rafraîchit toute seule chaque minute, sinon *« dans 12 min »*
+deviendrait faux au bout d'un quart d'heure. Un technicien n'y voit que ses
+séances ; l'administrateur bascule sur toute l'équipe ou sur une personne.
+
+---
+
+## Ce que disent les rapports
+
+Écran **Professeurs**, en tête. Vous écrivez un rapport par séance depuis des
+mois et personne ne les relit à l'envers. Regroupés par professeur, ils
+répondent à la seule question utile : **avec qui les séances se passent-elles
+mal, et à quelle fréquence ?**
+
+Pour chacun, sur quatre-vingt-dix jours : le nombre de séances avec un
+problème signalé, les problèmes importants, et les **absences**. Seuls
+ressortent ceux qui ont au moins une absence, un problème important, ou plus
+de 30 % de séances à incident — le reste ne mérite pas votre attention.
+
+« Le professeur ne s'est pas présenté » est devenu une **case à cocher** du
+rapport, et non plus une phrase dans la description : c'est ce qui la rend
+comptable trois mois plus tard. Le numéro est à côté du relevé, pour appeler
+tout de suite.
+
+Les séances **sans rapport** n'entrent pas dans le calcul : on ne reproche
+rien à un professeur sur une séance que personne n'a racontée.
+
+---
+
 ## Comptes et mots de passe
 
 L'espace est **fermé** : plus rien ne s'ouvre sans connexion. Auparavant

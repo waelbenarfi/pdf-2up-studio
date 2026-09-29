@@ -293,6 +293,24 @@ def professeurs():
     return ok(service.professeurs(_arg("actifs") == "1"))
 
 
+@suivi_bp.route("/api/suivi/professeurs/fiabilite")
+def fiabilite():
+    """Ce que les rapports disent des professeurs, une fois additionnés."""
+    return ok(service.fiabilite_professeurs(_arg("jours", 90)))
+
+
+@suivi_bp.route("/api/suivi/soir")
+def soir():
+    """La soirée en cours. Un technicien ne voit que ses séances."""
+    qui = auth.utilisateur()
+    if not auth.est_admin():
+        return ok(service.soiree(qui["id"], _arg("date")))
+    demande = _arg("pour")
+    return ok(service.soiree(
+        None if demande in (None, "", "equipe") else service._entier(demande),
+        _arg("date")))
+
+
 @suivi_bp.route("/api/suivi/professeurs/<int:ident>",
                 methods=["PATCH", "PUT", "DELETE"])
 def professeur(ident):

@@ -7,6 +7,7 @@ import {
 } from './noyau.js'
 import { ico } from './icones.js'
 import { ouvrirMotDePasse } from './vues/equipe.js'
+import { vueSoir } from './vues/soir.js'
 import { vueTableau } from './vues/tableau.js'
 import { vuePlanning, vueLives } from './vues/planning.js'
 import { vueRapports, ouvrirFormulaire } from './vues/rapports.js'
@@ -17,6 +18,8 @@ import { vueEquipe } from './vues/equipe.js'
 import { vueProfesseurs } from './vues/professeurs.js'
 
 const ECRANS = [
+  { cle: 'soir', ico: 'onde', nom: 'Ce soir', vue: vueSoir,
+    titre: 'Ce soir', sous: 'Les séances du jour, et la prochaine chose à faire' },
   { cle: 'tableau', ico: 'tableau', nom: 'Tableau de bord', vue: vueTableau,
     titre: 'Tableau de bord', sous: 'Tout ce qui se passe aujourd’hui, en un coup d’œil' },
   { cle: 'planning', ico: 'agenda', nom: 'Planification', vue: vuePlanning,
@@ -48,7 +51,7 @@ function dessinerNav () {
     .map(cle => ECRANS.find(e => e.cle === cle)).filter(Boolean).map(lien)
   remplir($('#nav'),
     h('div', { class: 's-nav-titre' }, 'Suivi'),
-    ...groupe('tableau', 'planning', 'lives'),
+    ...groupe('soir', 'tableau', 'planning', 'lives'),
     h('div', { class: 's-nav-titre' }, 'Qualité'),
     ...groupe('rapports', 'performance', 'archive', 'support'),
     h('div', { class: 's-nav-titre' }, 'Organisation'),

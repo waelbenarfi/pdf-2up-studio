@@ -172,6 +172,50 @@ def professeurs(actifs_seulement=False):
     return db.tous(sql + " GROUP BY pr.id ORDER BY pr.actif DESC, pr.nom")
 
 
+def fiabilite_professeurs(jours=90):
+    """Ce que les rapports disent des professeurs, une fois additionnés.
+
+    Vous écrivez un rapport par séance depuis des mois ; personne ne les
+    relit à l'envers. Regroupés par professeur, ils répondent enfin à la
+    seule question utile : avec qui les séances se passent-elles mal, et à
+    quelle fréquence ?
+
+    Les séances sans rapport ne comptent pas : on ne peut rien reprocher à
+    un professeur sur une séance que personne n'a racontée.
+    """
+    depuis = (datetime.date.today()
+              - datetime.timedelta(days=int(jours))).isoformat()
+    lignes = db.tous(
+        "SELECT pr.id, pr.nom, pr.telephone, pr.matiere,"
+        " COUNT(r.id) AS rapports,"
+        " SUM(CASE WHEN r.etat != 'normale' THEN 1 ELSE 0 END) AS soucis,"
+        " SUM(CASE WHEN r.etat = 'important' THEN 1 ELSE 0 END) AS graves,"
+        " SUM(CASE WHEN COALESCE(r.absent_prof, 0) = 1 THEN 1 ELSE 0 END)"
+        "   AS absences"
+        " FROM professeurs pr"
+        " JOIN lives l ON l.professeur_id = pr.id"
+        " JOIN rapports r ON r.live_id = l.id AND r.date >= ?"
+        " GROUP BY pr.id, pr.nom, pr.telephone, pr.matiere", (depuis,))
+
+    sortie = []
+    for ligne in lignes:
+        total = int(ligne["rapports"] or 0)
+        soucis = int(ligne["soucis"] or 0)
+        sortie.append({
+            "id": ligne["id"], "nom": ligne["nom"],
+            "telephone": ligne["telephone"], "matiere": ligne["matiere"],
+            "rapports": total,
+            "soucis": soucis,
+            "graves": int(ligne["graves"] or 0),
+            "absences": int(ligne["absences"] or 0),
+            "part": _part(soucis, total),
+        })
+    # les plus problématiques d'abord : c'est ce qu'on vient chercher
+    sortie.sort(key=lambda item: (-item["absences"], -item["graves"],
+                                  -item["part"], item["nom"]))
+    return {"depuis": depuis, "jours": int(jours), "professeurs": sortie}
+
+
 def _valeurs_professeur(valeurs, base=None):
     base = base or {}
     return {
@@ -717,6 +761,10 @@ def _valeurs_rapport(valeurs, base=None):
         "actions": actions or schema.ACTIONS_RAS,
         "commentaires": _texte(valeurs, "commentaires",
                                base.get("commentaires", "")),
+        # question a part et non phrase dans la description : c'est ce qui
+        # la rend comptable au bout de trois mois
+        "absent_prof": 1 if valeurs.get("absent_prof",
+                                        base.get("absent_prof")) else 0,
     }
 
 
@@ -1202,6 +1250,41 @@ def _classement(depuis):
         sortie.append(ligne)
     sortie.sort(key=lambda item: (-item["taux"], -item["lives"]))
     return sortie
+
+
+# ================================================================ ce soir
+def soiree(pour=None, date=None):
+    """Les séances du jour, avec pour chacune la prochaine chose à faire.
+
+    L'écran du soir ne sert pas à consulter un planning : il sert pendant
+    que trois lives tournent en même temps. Le serveur renvoie donc déjà
+    l'étape suivante, plutôt que de laisser l'écran la déduire d'une liste
+    de sept cases à chaque rafraîchissement.
+    """
+    jour = date or db.aujourdhui()
+    seances = [s for s in lives(date=jour, responsable=pour or None)
+               if s["statut"] != "annule"]
+    seances.sort(key=lambda s: (s["heure"] or "99:99", s["titre"]))
+
+    maintenant = datetime.datetime.now()
+    for seance in seances:
+        etapes = taches_de(seance["id"])
+        seance["taches"] = etapes
+        restantes = [e for e in etapes if not e["fait"]]
+        # l'étape du rapport se règle par le formulaire, pas par une case
+        suivante = next((e for e in restantes
+                         if e["cle"] != schema.TACHE_RAPPORT), None)
+        seance["suivante"] = suivante
+        seance["reste"] = len(restantes)
+
+        debut = _horodate(seance["date"], seance["heure"])
+        fin = _horodate(seance["date"], seance["heure_fin"] or seance["heure"])
+        seance["minutesAvant"] = (
+            int((debut - maintenant).total_seconds() // 60) if debut else None)
+        seance["enCours"] = bool(debut and fin and debut <= maintenant <= fin)
+        seance["finie"] = bool(fin and maintenant > fin)
+    return {"date": jour, "pour": pour, "seances": seances,
+            "maintenant": maintenant.strftime("%H:%M")}
 
 
 # ============================================================ performance

@@ -38,8 +38,9 @@ plus lue du tout.
 |---|---|---|
 | Séances, étapes, commentaires, rapports, tickets | oui | oui |
 | Modifier un rapport déjà envoyé | oui | oui |
-| Voir son propre tableau de bord | oui | oui |
+| Voir son propre tableau de bord et son propre score | oui | oui |
 | Voir celui d'un collègue, ou de toute l'équipe | oui | non |
+| Désigner l'employé du mois | oui | non |
 | Voir le journal « Dernières actions » | oui | non |
 | Ajouter, modifier, supprimer un membre | oui | non |
 | Poser ou retirer un mot de passe | oui | son propre seulement |
@@ -321,6 +322,61 @@ Les étapes et les commentaires sont comptés **par nom d'auteur** et non par
 identifiant, comme `responsable_nom` sur un rapport : la trace survit ainsi à
 la suppression d'une fiche, mais renommer quelqu'un détacherait son
 historique.
+
+---
+
+## Performance et employé du mois
+
+Écran **Performance**. Chacun y voit son propre relevé ; l'administrateur voit
+toute l'équipe, classée, et désigne l'employé du mois.
+
+### Ce que le score mesure — et pourquoi celui-là
+
+Les cases du déroulé sont **déclaratives** : personne ne vérifie qu'un
+professeur a vraiment été appelé. Dès qu'une case cochée rapporte de l'argent,
+le chemin le plus court vers la prime devient *tout cocher*, pas *tout faire*,
+et le déroulé cesse de dire si la séance est prête. Le score ne retient donc
+que ce que la personne ne contrôle pas elle-même.
+
+| Composante | Poids | Ce qui la rend difficile à fausser |
+|---|---|---|
+| Couverture des rapports | 30 % | Le rapport existe ou n'existe pas |
+| Préparation à temps | 30 % | Étapes d'avant-live cochées **avant le début**, d'après l'horodatage du serveur |
+| Ponctualité | 25 % | Comparée à la fin **prévue** de la séance, que le technicien ne fixe pas |
+| Charge assurée | 15 % | Séances suivies, rapportées au plus chargé du mois |
+
+« Préparation à temps » est la garde la plus utile : cocher les sept cases le
+lendemain y rapporte **zéro**, alors que le nombre de cases cochées est
+identique. C'est ce qui empêche la prime de récompenser le remplissage.
+
+**Ce qui n'est pas compté.** Les incidents ne retirent aucun point : les
+pénaliser apprendrait à cacher les problèmes et punirait celui qui hérite des
+séances difficiles. Ils sont affichés comme contexte. Le volume n'est pas payé
+au nombre — il est plafonné et minoritaire, sinon il pousserait à accaparer
+les séances.
+
+**Éligibilité.** En dessous de **5 séances** dans le mois, la personne reste
+affichée mais hors classement : trois séances parfaites ne valent pas quarante
+séances à 95 %.
+
+**Signal d'alerte.** Si plus de 60 % des étapes d'une personne sont cochées
+après la fin de la séance, l'écran le signale. Ce n'est pas une sanction,
+c'est une question à poser.
+
+### La décision reste humaine
+
+Le classement propose, l'administrateur nomme. La désignation garde **qui** a
+décidé, **quand**, le **score au moment de la décision** et le **motif écrit**,
+visible par toute l'équipe : une prime qui s'explique se conteste moins. Un
+seul employé du mois par mois ; nommer quelqu'un d'autre remplace le
+précédent.
+
+Chaque composante est rendue avec son calcul en clair — *« 18/20 séances avec
+rapport »* plutôt qu'un simple *90* : un score attaché à une prime doit
+pouvoir s'expliquer à la personne.
+
+Les poids, le seuil d'éligibilité et le seuil d'alerte sont réunis en tête de
+`suivi/schema.py` (`POIDS`, `SEUIL_ELIGIBLE`, `SEUIL_APRES_COUP`).
 
 ---
 

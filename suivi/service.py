@@ -1100,6 +1100,197 @@ def _classement(depuis):
     return sortie
 
 
+# ============================================================ performance
+def _bornes_mois(mois):
+    """Premier et dernier jour du mois « AAAA-MM »."""
+    try:
+        annee, numero = int(mois[:4]), int(mois[5:7])
+        debut = datetime.date(annee, numero, 1)
+    except (ValueError, IndexError):
+        raise Refus("Mois invalide : %s (format attendu AAAA-MM)." % mois)
+    fin = datetime.date(annee + (numero == 12), (numero % 12) + 1, 1) \
+        - datetime.timedelta(days=1)
+    return debut.isoformat(), fin.isoformat()
+
+
+def _part(fait, total):
+    """Un pourcentage entier, et 0 plutôt qu'une division par zéro."""
+    return int(round(100.0 * fait / total)) if total else 0
+
+
+def performances(mois=None):
+    """Le relevé mensuel de chacun, et ce qui compose son score.
+
+    Chaque composante est rendue avec son détail chiffré : un score attaché
+    à une prime doit pouvoir s'expliquer à la personne, sinon il fait plus
+    de dégâts que pas de prime du tout.
+    """
+    mois = mois or db.aujourdhui()[:7]
+    debut, fin = _bornes_mois(mois)
+    maintenant = datetime.datetime.now()
+
+    seances = db.tous(
+        "SELECT * FROM lives WHERE date >= ? AND date <= ?"
+        " AND statut != 'annule' AND responsable_id IS NOT NULL",
+        (debut, fin))
+    # seules les séances déjà passées se jugent : le reste est à venir
+    seances = [s for s in seances
+               if (_horodate(s["date"], s["heure_fin"] or s["heure"])
+                   or maintenant) < maintenant]
+
+    par_live = {s["id"]: s for s in seances}
+    etapes = []
+    if par_live:
+        trous = ", ".join("?" * len(par_live))
+        etapes = db.tous(
+            "SELECT * FROM taches WHERE fait = 1 AND live_id IN (%s)" % trous,
+            list(par_live))
+
+    rapports_mois = db.tous(
+        "SELECT * FROM rapports WHERE date >= ? AND date <= ?", (debut, fin))
+    avec_rapport = {r["live_id"] for r in rapports_mois if r["live_id"]}
+
+    cles_avant = [t["cle"] for t in schema.TACHES if t["moment"] == "avant"]
+    # étapes regroupées par séance, pour ne pas reparcourir la liste
+    par_seance = {}
+    for etape in etapes:
+        par_seance.setdefault(etape["live_id"], []).append(etape)
+
+    brut = []
+    for personne in personnes(True):
+        miennes = [s for s in seances if s["responsable_id"] == personne["id"]]
+        siens = [r for r in rapports_mois
+                 if r["responsable_id"] == personne["id"]]
+
+        a_temps = 0          # étapes d'avant-live cochées avant le début
+        attendues = 0
+        apres_coup = 0       # cochées après la fin : signal, pas sanction
+        cochees = 0
+        for seance in miennes:
+            debut_live = _horodate(seance["date"], seance["heure"])
+            fin_live = _horodate(seance["date"],
+                                 seance["heure_fin"] or seance["heure"])
+            faites = {e["cle"]: e for e in par_seance.get(seance["id"], [])}
+            attendues += len(cles_avant)
+            for cle in cles_avant:
+                etape = faites.get(cle)
+                if not etape:
+                    continue
+                quand = _quand(etape["fait_le"])
+                if quand and debut_live and quand <= debut_live:
+                    a_temps += 1
+            for etape in faites.values():
+                cochees += 1
+                quand = _quand(etape["fait_le"])
+                if quand and fin_live and quand > fin_live:
+                    apres_coup += 1
+
+        couverts = len([s for s in miennes if s["id"] in avec_rapport])
+        ponctuels = len([r for r in siens
+                         if int(r["retard_min"] or 0) <= schema.RETARD_MINUTES])
+        brut.append({
+            "id": personne["id"], "nom": personne["nom"],
+            "couleur": personne["couleur"],
+            "role": personne.get("role", "technicien"),
+            "seances": len(miennes),
+            "rapports": len(siens),
+            "couverts": couverts,
+            "ponctuels": ponctuels,
+            "etapesATemps": a_temps,
+            "etapesAttendues": attendues,
+            "etapesCochees": cochees,
+            "apresCoup": apres_coup,
+            "incidents": len([r for r in siens if r["etat"] != "normale"]),
+            "notes": {
+                "couverture": _part(couverts, len(miennes)),
+                "preparation": _part(a_temps, attendues),
+                "ponctualite": _part(ponctuels, len(siens)),
+            },
+        })
+
+    # la charge se juge les uns par rapport aux autres : le plus chargé du
+    # mois fait le 100, sinon un mois creux noterait tout le monde à zéro
+    plus_charge = max([p["seances"] for p in brut] or [0])
+    poids = {item["cle"]: item["poids"] for item in schema.POIDS}
+    for ligne in brut:
+        ligne["notes"]["charge"] = _part(ligne["seances"], plus_charge)
+        ligne["score"] = int(round(sum(
+            ligne["notes"][cle] * poids[cle] for cle in poids) / 100.0))
+        ligne["eligible"] = ligne["seances"] >= schema.SEUIL_ELIGIBLE
+        ligne["partApresCoup"] = _part(ligne["apresCoup"], ligne["etapesCochees"])
+        ligne["doute"] = ligne["partApresCoup"] >= schema.SEUIL_APRES_COUP \
+            and ligne["etapesCochees"] >= 5
+
+    # classés au score, la charge départage : à score égal, celui qui a
+    # assuré le plus de séances passe devant
+    brut.sort(key=lambda l: (-l["score"], -l["seances"], l["nom"]))
+    rang = 0
+    for ligne in brut:
+        if ligne["eligible"]:
+            rang += 1
+            ligne["rang"] = rang
+        else:
+            ligne["rang"] = None
+
+    return {
+        "mois": mois, "debut": debut, "fin": fin,
+        "classement": brut,
+        "distinction": distinction_du_mois(mois),
+        "plusCharge": plus_charge,
+    }
+
+
+def _quand(texte):
+    try:
+        return datetime.datetime.fromisoformat(str(texte or ""))
+    except ValueError:
+        return None
+
+
+def distinction_du_mois(mois):
+    ligne = db.un(
+        "SELECT d.*, p.nom, p.couleur FROM distinctions d"
+        " JOIN personnes p ON p.id = d.personne_id WHERE d.mois = ?", (mois,))
+    return ligne
+
+
+def nommer_employe(mois, personne_id, motif="", par=""):
+    """Désigne l'employé du mois. La décision reste humaine et tracée."""
+    _bornes_mois(mois)
+    personne = db.un("SELECT * FROM personnes WHERE id = ?", (personne_id,))
+    if not personne:
+        raise Refus("Membre introuvable.")
+
+    releve = performances(mois)
+    ligne = next((l for l in releve["classement"] if l["id"] == personne_id),
+                 None)
+    if not ligne:
+        raise Refus("Cette personne n'a pas de relevé pour ce mois.")
+    if not ligne["eligible"]:
+        raise Refus("%s n'a suivi que %d séance(s) ce mois-ci : en dessous de "
+                    "%d, le score n'est pas comparable."
+                    % (personne["nom"], ligne["seances"],
+                       schema.SEUIL_ELIGIBLE))
+
+    db.executer("DELETE FROM distinctions WHERE mois = ?", (mois,))
+    db.inserer("distinctions", {
+        "mois": mois, "personne_id": personne_id,
+        "motif": str(motif or "").strip()[:500], "score": ligne["score"],
+        "decide_le": db.maintenant(), "decide_par": par})
+    journaliser("Employé du mois", personne["nom"],
+                "%s · score %d" % (mois, ligne["score"]), par)
+    return performances(mois)
+
+
+def retirer_employe(mois, par=""):
+    actuel = distinction_du_mois(mois)
+    if not actuel:
+        raise Refus("Aucun employé du mois désigné pour cette période.")
+    db.executer("DELETE FROM distinctions WHERE mois = ?", (mois,))
+    journaliser("Employé du mois retiré", actuel["nom"], mois, par)
+    return performances(mois)
+
+
 def journal(limite=100):
     return db.tous("SELECT * FROM journal ORDER BY id DESC LIMIT ?",
                    (int(limite),))

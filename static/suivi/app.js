@@ -10,6 +10,7 @@ import { ouvrirMotDePasse } from './vues/equipe.js'
 import { vueTableau } from './vues/tableau.js'
 import { vuePlanning, vueLives } from './vues/planning.js'
 import { vueRapports, ouvrirFormulaire } from './vues/rapports.js'
+import { vuePerformance } from './vues/performance.js'
 import { vueArchive } from './vues/archive.js'
 import { vueSupport } from './vues/support.js'
 import { vueEquipe } from './vues/equipe.js'
@@ -23,6 +24,9 @@ const ECRANS = [
     titre: 'Séances', sous: 'Historique complet des lives' },
   { cle: 'rapports', ico: 'document', nom: 'Rapports', vue: vueRapports, compteur: 'sansRapport',
     titre: 'Rapports quotidiens', sous: 'Un rapport après chaque live, même quand tout va bien' },
+  { cle: 'performance', ico: 'cible', nom: 'Performance', vue: vuePerformance,
+    titre: 'Performance du mois',
+    sous: 'Ce que chacun a tenu, et sur quoi on le dit' },
   { cle: 'archive', ico: 'boite', nom: 'Archive', vue: vueArchive,
     titre: 'Archive des rapports', sous: 'Rangement automatique par année et par mois' },
   { cle: 'support', ico: 'bouee', nom: 'Support technique', vue: vueSupport, compteur: 'tickets',
@@ -34,13 +38,17 @@ const ECRANS = [
 /* ----------------------------------------------------------- barre nav */
 function dessinerNav () {
   const { nom } = routeCourante()
+  // les écrans sont regroupés par nom et non par position : ajouter une
+  // entrée décalait silencieusement les trois sections
+  const groupe = (...cles) => cles
+    .map(cle => ECRANS.find(e => e.cle === cle)).filter(Boolean).map(lien)
   remplir($('#nav'),
     h('div', { class: 's-nav-titre' }, 'Suivi'),
-    ...ECRANS.slice(0, 3).map(lien),
+    ...groupe('tableau', 'planning', 'lives'),
     h('div', { class: 's-nav-titre' }, 'Qualité'),
-    ...ECRANS.slice(3, 6).map(lien),
+    ...groupe('rapports', 'performance', 'archive', 'support'),
     h('div', { class: 's-nav-titre' }, 'Organisation'),
-    lien(ECRANS[6]))
+    ...groupe('equipe'))
 
   function lien (ecran) {
     const compte = ecran.compteur ? etat.compteurs[ecran.compteur] : 0

@@ -145,6 +145,50 @@ ADMIN_PAR_DEFAUT = "Oussama Mzali"
 # impose : une regle compliquee pousse a le noter sur un papier.
 MDP_MIN = 8
 
+# ------------------------------------------------------------ performance
+# Le score mensuel, et ce qui le compose.
+#
+# Regle de conception : ne noter que ce que la personne ne controle pas
+# elle-meme. Les cases du deroule sont declaratives -- personne ne verifie
+# qu'un professeur a vraiment ete appele. Des qu'une case coche paie, le
+# chemin le plus court vers la prime est de tout cocher, pas de tout faire,
+# et le deroule cesse de dire si la seance est prete.
+#
+# D'ou :
+#   couverture   le rapport existe ou n'existe pas ;
+#   ponctualite  compare a la fin PREVUE de la seance, que le technicien ne
+#                fixe pas ;
+#   preparation  les etapes d'avant-live cochees AVANT le debut du live,
+#                d'apres l'horodatage du serveur : tout cocher le lendemain
+#                ne rapporte rien ici ;
+#   charge       le volume assure, rapporte au plus charge du mois, pour que
+#                bien travailler sur quarante seances pese plus que sur
+#                quatre -- sans recompenser l'accaparement, la part etant
+#                plafonnee et minoritaire.
+#
+# Volontairement absents : les incidents. Les compter en negatif apprend a
+# cacher les problemes et punit celui qui herite des seances difficiles.
+# Ils sont affiches comme contexte, jamais retires du score.
+POIDS = [
+    {"cle": "couverture", "libelle": "Couverture des rapports", "poids": 30,
+     "aide": "Part de vos séances terminées qui ont bien reçu un rapport"},
+    {"cle": "preparation", "libelle": "Préparation à temps", "poids": 30,
+     "aide": "Étapes d'avant-live cochées avant le début de la séance"},
+    {"cle": "ponctualite", "libelle": "Ponctualité", "poids": 25,
+     "aide": "Rapports envoyés dans l'heure qui suit la fin de la séance"},
+    {"cle": "charge", "libelle": "Charge assurée", "poids": 15,
+     "aide": "Nombre de séances suivies, rapporté au plus chargé du mois"},
+]
+
+# En dessous, le score n'a pas de sens : trois seances parfaites battraient
+# quarante seances a 95 %. La personne reste affichee, mais hors classement.
+SEUIL_ELIGIBLE = 5
+
+# Au-dela de cette part d'etapes cochees apres la fin de la seance, l'ecran
+# le signale a l'administrateur. Ce n'est pas une sanction, c'est une
+# question a poser.
+SEUIL_APRES_COUP = 60
+
 COULEURS = ["#6f7cff", "#22d3ee", "#34d399", "#fbbf24", "#f97066",
             "#c084fc", "#fb923c", "#38bdf8", "#a3e635"]
 
@@ -161,13 +205,15 @@ TAILLE_MAX_MO = 50
 # Tables videes par « Tout remettre a zero » (dans cet ordre : les enfants
 # d'abord, pour ne pas heurter les cles etrangeres).
 TABLES_DONNEES = ["messages", "fichiers", "tickets", "notes", "taches",
-                  "comptes", "rapports", "lives", "personnes", "journal"]
+                  "comptes", "distinctions", "rapports", "lives", "personnes",
+                  "journal"]
 
 # Tables dont la cle primaire est un entier auto-incremente. `parametres` est
 # la seule a en etre depourvue : sa cle est un texte. La distinction sert a
 # savoir ou ajouter un RETURNING id sous PostgreSQL.
 TABLES_ID = ["personnes", "lives", "rapports", "fichiers", "tickets",
-             "messages", "journal", "taches", "notes", "comptes"]
+             "messages", "journal", "taches", "notes", "comptes",
+             "distinctions"]
 
 
 DDL = """
@@ -326,10 +372,23 @@ CREATE TABLE IF NOT EXISTS comptes (
   derniere    TEXT    NOT NULL DEFAULT ''
 );
 CREATE UNIQUE INDEX IF NOT EXISTS i_comptes_personne ON comptes(personne_id);
+
+-- L'employe du mois : la decision est humaine, la trace est ecrite. Un seul
+-- par mois, d'ou l'index unique.
+CREATE TABLE IF NOT EXISTS distinctions (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  mois        TEXT    NOT NULL,
+  personne_id INTEGER NOT NULL REFERENCES personnes(id) ON DELETE CASCADE,
+  motif       TEXT    NOT NULL DEFAULT '',
+  score       INTEGER NOT NULL DEFAULT 0,
+  decide_le   TEXT    NOT NULL,
+  decide_par  TEXT    NOT NULL DEFAULT ''
+);
+CREATE UNIQUE INDEX IF NOT EXISTS i_distinctions_mois ON distinctions(mois);
 """
 
 # Consultees au demarrage pour savoir s'il reste quelque chose a creer.
-TABLES_AJOUTEES = ["taches", "notes", "comptes"]
+TABLES_AJOUTEES = ["taches", "notes", "comptes", "distinctions"]
 
 # Un commentaire est libre mais pas sans fin : au-dela, c'est un rapport.
 NOTE_MAX = 1000
@@ -380,6 +439,9 @@ def constantes():
         "noteMax": NOTE_MAX,
         "roles": ROLES,
         "mdpMin": MDP_MIN,
+        "poids": POIDS,
+        "seuilEligible": SEUIL_ELIGIBLE,
+        "seuilApresCoup": SEUIL_APRES_COUP,
         "fonction": FONCTION,
         "couleurs": COULEURS,
         "mois": MOIS_ACCENT,

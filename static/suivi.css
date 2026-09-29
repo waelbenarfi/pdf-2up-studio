@@ -578,6 +578,95 @@ table.s-tableau { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .s-bloc-corps { padding: 14px; display: flex; flex-direction: column; gap: 13px; }
 .s-bloc-corps > .s-info:first-child { margin-top: 0; }
 
+/* ------------------------------------------------ performance -------- */
+.s-perf-liste { display: flex; flex-direction: column; gap: 14px; }
+
+.s-perf {
+  border: 1px solid var(--line); border-radius: var(--r-lg);
+  background: var(--surface); padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 14px;
+  box-shadow: var(--ombre-carte);
+}
+.s-perf.hors { opacity: .72; }
+.s-perf.laureat { border-color: color-mix(in srgb, var(--ok) 50%, var(--line));
+  background: color-mix(in srgb, var(--ok) 5%, var(--surface)); }
+
+.s-perf-tete { display: flex; align-items: center; gap: 13px; flex-wrap: wrap; }
+.s-perf-tete .qui { flex: 1; min-width: 0; }
+.s-perf-tete .qui b { font-size: 15px; }
+.s-perf-tete .qui small { display: block; font-size: 12px; color: var(--muted);
+  margin-top: 2px; }
+.s-perf-rang {
+  width: 30px; height: 30px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; font-size: 13px; font-weight: 750;
+  background: var(--surface-2); color: var(--muted);
+}
+.s-perf-rang.podium { background: var(--accent); color: #fff; }
+.s-perf-rang.hors { font-weight: 600; }
+.s-perf-score { text-align: right; flex: none; }
+.s-perf-score b { display: block; font-size: 26px; font-weight: 750;
+  letter-spacing: -1px; line-height: 1; font-variant-numeric: tabular-nums; }
+.s-perf-score small { font-size: 11px; color: var(--muted); }
+
+/* les quatre composantes, chacune avec son calcul en clair dessous */
+.s-perf-parts { display: grid; gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1080px) { .s-perf-parts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .s-perf-parts { grid-template-columns: 1fr; } }
+.s-perf-part .haut { display: flex; align-items: baseline; gap: 8px;
+  margin-bottom: 6px; }
+.s-perf-part .nom { font-size: 12px; font-weight: 600; color: var(--muted);
+  flex: 1; min-width: 0; }
+.s-perf-part .val { font-size: 13px; font-weight: 700;
+  font-variant-numeric: tabular-nums; }
+.s-perf-part small { display: block; font-size: 11px; color: var(--muted);
+  margin-top: 6px; line-height: 1.4; }
+.s-perf-part small.poids { opacity: .7; }
+
+.s-perf-pied { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 11.5px; color: var(--muted); padding-top: 12px;
+  border-top: 1px solid var(--line); }
+
+/* le lauréat, en tête d'écran */
+.s-laureat {
+  display: flex; align-items: center; gap: 15px; flex-wrap: wrap;
+  padding: 16px 18px; border-radius: var(--r-md);
+  border: 1px solid color-mix(in srgb, var(--ok) 42%, var(--line));
+  background: color-mix(in srgb, var(--ok) 8%, var(--surface));
+}
+.s-laureat.vide { border-color: var(--line); background: var(--surface-2); }
+.s-laureat .medaille {
+  width: 48px; height: 48px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
+}
+.s-laureat.vide .medaille { color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 14%, transparent); }
+.s-laureat .corps { flex: 1; min-width: 0; }
+.s-laureat .corps small { display: block; font-size: 11px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .6px; font-weight: 700; }
+.s-laureat .corps b { display: block; font-size: 17px; margin: 3px 0; }
+.s-laureat .corps p { margin: 4px 0 6px; font-size: 13px; line-height: 1.5; }
+.s-laureat .corps small:last-child { text-transform: none; letter-spacing: 0;
+  font-weight: 500; }
+
+/* la méthode, repliée : on la déplie quand on conteste un chiffre */
+.s-perf-methode { border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--surface); padding: 12px 16px; }
+.s-perf-methode summary { cursor: pointer; font-size: 13px; font-weight: 650;
+  display: flex; align-items: center; gap: 8px; }
+.s-perf-methode .corps { padding-top: 12px; }
+.s-perf-poids { display: grid; gap: 12px; margin-bottom: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 960px) { .s-perf-poids { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.s-perf-poids > div { padding: 10px 12px; border-radius: var(--r-sm);
+  background: var(--surface-2); }
+.s-perf-poids b { display: block; font-size: 18px; color: var(--accent);
+  letter-spacing: -.5px; }
+.s-perf-poids span { display: block; font-size: 12.5px; font-weight: 600;
+  margin: 2px 0 4px; }
+.s-perf-poids small { font-size: 11px; color: var(--muted); line-height: 1.4; }
+
 /* ---------------------------------------------------- import --------- */
 .s-import-zone {
   width: 100%; resize: vertical; font: inherit; font-size: 12.5px;

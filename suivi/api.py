@@ -496,6 +496,36 @@ def tableau():
     return ok(service.tableau(service._entier(demande)))
 
 
+@suivi_bp.route("/api/suivi/performances")
+def performances():
+    """Le relevé mensuel. Un technicien n'y voit que sa propre ligne.
+
+    Le filtrage est fait ici : la note d'un collègue ne regarde que
+    l'administrateur, et une prime se discute avec lui, pas entre collègues.
+    """
+    releve = service.performances(_arg("mois"))
+    if auth.est_admin():
+        return ok(releve)
+    qui = auth.utilisateur()
+    mienne = [l for l in releve["classement"] if l["id"] == qui["id"]]
+    releve["classement"] = mienne
+    releve["equipe"] = len(mienne)
+    # la distinction du mois est publique : c'est une reconnaissance
+    return ok(releve)
+
+
+@suivi_bp.route("/api/suivi/performances/employe", methods=["POST", "DELETE"])
+@auth.exiger_admin
+def employe_du_mois():
+    corps = _corps()
+    mois = corps.get("mois") or request.args.get("mois") or db.aujourdhui()[:7]
+    if request.method == "DELETE":
+        return ok(service.retirer_employe(mois, _qui()))
+    return ok(service.nommer_employe(mois,
+                                     service._entier(corps.get("personne_id")),
+                                     corps.get("motif", ""), _qui()))
+
+
 @suivi_bp.route("/api/suivi/journal")
 @auth.exiger_admin
 def journal():

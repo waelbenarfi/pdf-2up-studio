@@ -892,29 +892,47 @@ def supprimer_message(ident):
 
 
 # ========================================================== tableau de bord
-def tableau():
+def tableau(pour=None):
+    """Le tableau de bord, pour toute l'équipe ou pour une seule personne.
+
+    `pour` est un identifiant de personne : les séances retenues sont celles
+    dont elle est responsable, les rapports ceux qu'elle a signés. C'est
+    l'API qui décide de ce qu'elle a le droit de demander ; ici on se
+    contente de filtrer.
+    """
     aujourdhui = db.aujourdhui()
     depuis = (datetime.date.today() - datetime.timedelta(days=29)).isoformat()
+    qui = db.un("SELECT * FROM personnes WHERE id = ?", (pour,)) if pour else None
 
-    lives_jour = lives(date=aujourdhui)
+    lives_jour = lives(date=aujourdhui, responsable=pour or None)
     sans_rapport_jour = [l for l in lives_jour if l["sansRapport"]]
     etapes_restantes = sum(l["tachesRestantes"] for l in lives_jour
                            if l["statut"] != "annule")
-    sans_rapport_total = lives(du=depuis, sans_rapport=True)
-    rapports_jour = db.tous("SELECT * FROM rapports WHERE date = ?",
-                            (aujourdhui,))
-    mois = db.tous("SELECT * FROM rapports WHERE date >= ?", (depuis,))
+    sans_rapport_total = lives(du=depuis, sans_rapport=True,
+                               responsable=pour or None)
+
+    ou, params = ["date >= ?"], [depuis]
+    if pour:
+        ou.append("responsable_id = ?")
+        params.append(pour)
+    mois = db.tous("SELECT * FROM rapports WHERE " + " AND ".join(ou), params)
+    rapports_jour = [r for r in mois if r["date"] == aujourdhui]
 
     incidents = [r for r in mois if r["etat"] != "normale"]
     critiques = [r for r in incidents
                  if r["etat"] == "important" or r["urgence"] == "critique"]
-    ouverts = db.tous("SELECT * FROM tickets WHERE statut != 'resolu'")
+
+    # les tickets d'une personne sont ceux qu'elle a ouverts
+    cond_t = "" if not pour else " AND demandeur_id = %d" % int(pour)
+    ouverts = db.tous("SELECT * FROM tickets WHERE statut != 'resolu'" + cond_t)
     resolus = db.tous("SELECT * FROM tickets WHERE statut = 'resolu'"
-                      " AND resolu_le != ''")
+                      " AND resolu_le != ''" + cond_t)
     durees = [d for d in (_duree_ticket(t) for t in resolus) if d is not None]
 
-    return {
+    sortie = {
         "date": aujourdhui,
+        "pour": pour,
+        "nom": (qui or {}).get("nom", ""),
         "indicateurs": {
             "livesJour": len(lives_jour),
             "rapportsJour": len(rapports_jour),
@@ -927,37 +945,62 @@ def tableau():
             "resolutionMoyenne": int(sum(durees) / len(durees)) if durees else 0,
             "rapportsEnRetard": len([r for r in mois
                                      if r["retard_min"] > schema.RETARD_MINUTES]),
-            "tauxCouverture": _taux_couverture(depuis),
+            "tauxCouverture": _taux_couverture(depuis, pour),
         },
         "livesJour": lives_jour,
         "sansRapport": sans_rapport_total[:12],
-        "historique": rapports(limite=12),
-        "series": _series(),
+        "historique": rapports(limite=12, responsable=pour or None),
+        "series": _series(pour=pour),
         "repartition": _repartition(mois),
         "equipe": _classement(depuis),
     }
+    if qui:
+        sortie["indicateurs"].update(_activite(qui["nom"], depuis))
+    return sortie
 
 
-def _taux_couverture(depuis):
-    passes = [l for l in lives(du=depuis) if l["passe"] and l["statut"] != "annule"]
+def _activite(nom, depuis):
+    """Ce que la personne a fait de ses mains, et non ce qu'on lui a confié.
+
+    Les étapes et les commentaires portent le nom de leur auteur et non son
+    identifiant — comme `responsable_nom` sur un rapport, pour que la trace
+    survive à la suppression d'une fiche. Le comptage se fait donc par nom :
+    renommer quelqu'un détacherait son historique.
+    """
+    etapes = db.un(
+        "SELECT COUNT(*) AS n FROM taches t JOIN lives l ON l.id = t.live_id"
+        " WHERE t.fait = 1 AND t.fait_par = ? AND l.date >= ?",
+        (nom, depuis))["n"]
+    mots = db.un(
+        "SELECT COUNT(*) AS n FROM notes m JOIN lives l ON l.id = m.live_id"
+        " WHERE m.auteur = ? AND l.date >= ?", (nom, depuis))["n"]
+    return {"etapesFaites": etapes, "commentaires": mots}
+
+
+def _taux_couverture(depuis, pour=None):
+    passes = [l for l in lives(du=depuis, responsable=pour or None)
+              if l["passe"] and l["statut"] != "annule"]
     if not passes:
         return 100
     return int(round(100.0 * len([l for l in passes if l["aRapport"]])
                      / len(passes)))
 
 
-def _series(jours=14):
+def _series(jours=14, pour=None):
     aujourdhui = datetime.date.today()
+    filtre_l = " AND responsable_id = %d" % int(pour) if pour else ""
+    filtre_r = filtre_l
     sortie = []
     for recul in range(jours - 1, -1, -1):
         jour = (aujourdhui - datetime.timedelta(days=recul)).isoformat()
         compte = db.un(
-            "SELECT COUNT(*) AS n FROM lives WHERE date = ? AND statut != 'annule'",
-            (jour,))["n"]
-        faits = db.un("SELECT COUNT(*) AS n FROM rapports WHERE date = ?",
-                      (jour,))["n"]
+            "SELECT COUNT(*) AS n FROM lives WHERE date = ?"
+            " AND statut != 'annule'" + filtre_l, (jour,))["n"]
+        faits = db.un("SELECT COUNT(*) AS n FROM rapports WHERE date = ?"
+                      + filtre_r, (jour,))["n"]
         soucis = db.un("SELECT COUNT(*) AS n FROM rapports"
-                       " WHERE date = ? AND etat != 'normale'", (jour,))["n"]
+                       " WHERE date = ? AND etat != 'normale'" + filtre_r,
+                       (jour,))["n"]
         sortie.append({"jour": jour, "lives": compte, "rapports": faits,
                        "incidents": soucis})
     return sortie
@@ -984,14 +1027,17 @@ def _classement(depuis):
             "SELECT COUNT(*) AS n FROM rapports WHERE responsable_id = ?"
             " AND date >= ? AND retard_min > ?",
             (personne["id"], depuis, schema.RETARD_MINUTES))["n"]
-        sortie.append({
+        ligne = {
             "id": personne["id"], "nom": personne["nom"],
             "fonction": personne["fonction"], "couleur": personne["couleur"],
+            "role": personne.get("role", "technicien"),
             "lives": len(attribues), "rapports": len(faits),
             "manquants": manquants, "retards": retards,
             "taux": int(round(100.0 * len(faits) / len(attribues)))
                     if attribues else 100,
-        })
+        }
+        ligne.update(_activite(personne["nom"], depuis))
+        sortie.append(ligne)
     sortie.sort(key=lambda item: (-item["taux"], -item["lives"]))
     return sortie
 

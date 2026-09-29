@@ -1,19 +1,30 @@
-// Point 7 : le tableau de bord de la direction.
+// Point 7 : le tableau de bord.
+//
+// Chacun y voit son propre travail. L'administrateur choisit en plus de
+// regarder toute l'équipe, ou n'importe lequel de ses membres. Le filtre est
+// posé par le serveur : ce sélecteur ne fait que demander.
 
 import {
-  api, h, dateLongue, dateCourte, ilYA, duree, aller, personneDe
+  api, etat, h, dateLongue, dateCourte, ilYA, duree, aller, personneDe
 } from '../noyau.js'
 import {
   carte, kpi, vide, badge, badgeEtat, badgeStatutLive, pastille, tableau,
-  barreProgres, info
+  barreProgres, info, optionsPersonnes, champListe
 } from '../ui.js'
 import { ouvrirFormulaire, ouvrirFiche, ouvrirRapportDe } from './rapports.js'
 import { puceTaches } from './taches.js'
-
 import { ico } from '../icones.js'
-export async function vueTableau () {
-  const data = await api.get('/tableau')
+
+export async function vueTableau (params) {
+  // un technicien n'a rien à choisir : le serveur lui rend le sien
+  const pour = etat.admin ? (params.pour || '') : ''
+  const data = await api.get('/tableau', pour ? { pour } : null)
   const k = data.indicateurs
+  const perso = !!data.pour
+  const equipeEntiere = etat.admin && !perso
+  // « mes séances » quand c'est le sien, « ses séances » quand
+  // l'administrateur regarde quelqu'un d'autre
+  const soi = perso && data.pour === etat.moi
 
   const indicateurs = h('div', { class: 's-grille k4' },
     kpi({ dessin: 'video', nom: 'Lives aujourd’hui', valeur: k.livesJour, ton: 'accent',
@@ -27,34 +38,53 @@ export async function vueTableau () {
     kpi({ dessin: 'alerte', nom: 'Incidents', valeur: k.incidents, ton: 'warn',
       sous: '30 derniers jours',
       onclic: () => aller('rapports', { etat: 'petit' }) }),
-    kpi({ dessin: 'croix_cercle', nom: 'Incidents critiques', valeur: k.critiques,
-      ton: k.critiques ? 'danger' : 'ok', sous: 'problèmes importants ou urgence critique',
-      onclic: () => aller('rapports', { etat: 'important' }) }),
-    kpi({ dessin: 'billet', nom: 'Tickets support ouverts', valeur: k.ticketsOuverts,
-      ton: k.ticketsOuverts ? 'info' : 'ok', sous: 'nouveaux ou en cours',
-      onclic: () => aller('support') }),
-    kpi({ dessin: 'horloge', nom: 'Temps moyen de résolution',
-      valeur: duree(k.resolutionMoyenne), ton: 'violet',
-      sous: 'tickets résolus' }),
-    kpi({ dessin: 'tableau', nom: 'Taux de couverture', valeur: k.tauxCouverture + ' %',
+    // sur une vue personnelle, le travail fait de ses mains remplace les
+    // chiffres du support, qui ne disent rien de ce que la personne a fait
+    perso
+      ? kpi({ dessin: 'liste', nom: 'Étapes cochées', valeur: k.etapesFaites || 0,
+        ton: 'accent', sous: '30 derniers jours' })
+      : kpi({ dessin: 'croix_cercle', nom: 'Incidents critiques', valeur: k.critiques,
+        ton: k.critiques ? 'danger' : 'ok',
+        sous: 'problèmes importants ou urgence critique',
+        onclic: () => aller('rapports', { etat: 'important' }) }),
+    perso
+      ? kpi({ dessin: 'bulle', nom: 'Commentaires écrits',
+        valeur: k.commentaires || 0, ton: 'info', sous: '30 derniers jours' })
+      : kpi({ dessin: 'billet', nom: 'Tickets support ouverts', valeur: k.ticketsOuverts,
+        ton: k.ticketsOuverts ? 'info' : 'ok', sous: 'nouveaux ou en cours',
+        onclic: () => aller('support') }),
+    perso
+      ? kpi({ dessin: 'croix_cercle', nom: 'Incidents critiques', valeur: k.critiques,
+        ton: k.critiques ? 'danger' : 'ok',
+        sous: soi ? 'sur vos séances' : 'sur ses séances' })
+      : kpi({ dessin: 'horloge', nom: 'Temps moyen de résolution',
+        valeur: duree(k.resolutionMoyenne), ton: 'violet', sous: 'tickets résolus' }),
+    kpi({ dessin: 'cible', nom: 'Taux de couverture', valeur: k.tauxCouverture + ' %',
       ton: tonTaux(k.tauxCouverture),
       sous: `${k.rapportsEnRetard} rapport(s) envoyé(s) en retard` }))
 
   return [
+    etat.admin ? selecteur(pour, data) : null,
+    perso && etat.admin
+      ? info(`Vous regardez le tableau de bord de ${data.nom}. `
+        + 'Les chiffres ci-dessous ne portent que sur ses séances.')
+      : null,
     indicateurs,
     h('div', { class: 's-grille k2' },
       carte({
-        titre: 'Journée en cours',
+        titre: !perso ? 'Journée en cours'
+          : (soi ? 'Mes séances du jour' : 'Ses séances du jour'),
         sous: `${data.livesJour.length} séance(s) au programme`
           + (k.etapesRestantes
             ? ` · ${k.etapesRestantes} étape(s) restante(s)`
             : ' · toutes les étapes sont faites'),
         actions: [h('button', { class: 'b petit', onclick: () => aller('planning') },
           'Planning')]
-      }, journee(data.livesJour)),
+      }, journee(data.livesJour, perso, soi)),
       carte({
         titre: 'Séances sans rapport',
-        sous: 'À relancer auprès des responsables',
+        sous: !perso ? 'À relancer auprès des responsables'
+          : (soi ? 'À rattraper' : 'À relancer auprès de cette personne'),
         actions: [h('button', { class: 'b petit', onclick: () => aller('lives', { statut: 'termine' }) },
           'Tout voir')]
       }, manquants(data.sansRapport))),
@@ -69,16 +99,45 @@ export async function vueTableau () {
         repartition(data.repartition))),
     carte({
       titre: 'Historique des rapports',
-      sous: 'Les douze derniers rapports envoyés',
+      sous: perso
+        ? `Les douze derniers rapports signés ${soi ? 'par vous' : 'par cette personne'}`
+        : 'Les douze derniers rapports envoyés',
       actions: [
         h('button', { class: 'b petit', onclick: () => aller('rapports') }, 'Tout l’historique'),
         h('button', { class: 'b primaire petit', onclick: () => ouvrirFormulaire({}) },
           ico('plus', 15), 'Nouveau rapport')
       ]
     }, historique(data.historique)),
-    carte({ titre: 'Suivi par responsable', sous: 'Part des séances couvertes par un rapport, 30 derniers jours' },
-      equipe(data.equipe))
+    // le classement de toute l'équipe ne regarde que l'administrateur
+    equipeEntiere
+      ? carte({
+        titre: 'Suivi par responsable',
+        sous: 'Séances couvertes, étapes cochées et commentaires · 30 derniers jours'
+      }, equipe(data.equipe))
+      : null
   ]
+}
+
+/** Choix de la personne regardée : réservé à l'administrateur. */
+function selecteur (pour, data) {
+  const refs = {}
+  return carte({
+    titre: pour ? `Tableau de bord · ${data.nom}` : 'Tableau de bord de l’équipe',
+    sous: pour
+      ? 'Les chiffres d’une seule personne.'
+      : 'Toute l’équipe confondue. Choisissez un membre pour ne voir que le sien.',
+    actions: [
+      champListe(refs, 'pour', null,
+        [{ valeur: '', libelle: 'Toute l’équipe' },
+          ...optionsPersonnes(etat.personnes, null)],
+        {
+          valeur: String(pour || ''),
+          onchoix: (e) => aller('tableau', e.target.value
+            ? { pour: e.target.value }
+            : {})
+        })
+    ]
+  })
 }
 
 const tonTaux = (taux) => taux >= 90 ? 'ok' : (taux >= 70 ? 'warn' : 'danger')
@@ -87,9 +146,15 @@ const legende = (couleur, texte) => h('span', {},
   h('i', { style: { background: couleur } }), texte)
 
 /* --------------------------------------------------------------- blocs */
-function journee (lives) {
+function journee (lives, perso = false, soi = false) {
   if (!lives.length) {
-    return vide({ dessin: 'agenda', titre: 'Aucun live aujourd’hui', texte: 'Rien n’est planifié pour la journée.' })
+    return vide({
+      dessin: 'agenda',
+      titre: perso ? 'Aucune séance aujourd’hui' : 'Aucun live aujourd’hui',
+      texte: !perso ? 'Rien n’est planifié pour la journée.'
+        : (soi ? 'Aucune séance ne vous est attribuée pour la journée.'
+            : 'Aucune séance ne lui est attribuée pour la journée.')
+    })
   }
   return h('div', { class: 's-liste' }, ...lives.map(live =>
     h('div', { class: `s-item ${live.sansRapport ? 'alerte' : ''}` },
@@ -148,25 +213,41 @@ function historique (liste) {
   })
 }
 
+/**
+ * Le relevé de l'équipe. On y garde qui n'a rien eu à suivre : une ligne à
+ * zéro dit quelque chose, alors que son absence passe pour un oubli.
+ */
 function equipe (liste) {
-  const suivis = liste.filter(membre => membre.lives)
-  if (!suivis.length) {
-    return info('Aucune séance terminée à suivre sur les 30 derniers jours. '
-      + 'Ajoutez ou attribuez des lives depuis la Planification.')
+  if (!liste.length) {
+    return info('Aucun technicien actif. Ajoutez votre équipe depuis l’écran '
+      + 'Équipe pour suivre son activité.')
   }
-  return h('div', { class: 's-liste' }, ...suivis.map(membre =>
+  return h('div', { class: 's-liste' }, ...liste.map(membre =>
     h('div', { class: 's-item' },
       pastille(membre),
       h('div', { class: 'corps' },
-        h('b', {}, membre.nom),
-        h('small', {}, `${membre.rapports}/${membre.lives} séance(s) couverte(s)`
-          + (membre.retards ? ` · ${membre.retards} en retard` : '')),
+        h('div', { class: 'piece' },
+          h('b', {}, membre.nom),
+          membre.role === 'admin' ? badge('admin', 'accent', ico('bouclier', 11)) : null),
+        h('small', {}, membre.lives
+          ? `${membre.rapports}/${membre.lives} séance(s) couverte(s)`
+            + (membre.retards ? ` · ${membre.retards} en retard` : '')
+          : 'aucune séance à suivre sur la période'),
         h('div', { style: { marginTop: '7px' } },
-          barreProgres(membre.taux, `var(--${tonTaux(membre.taux)})`))),
+          barreProgres(membre.lives ? membre.taux : 0,
+            `var(--${membre.lives ? tonTaux(membre.taux) : 'muted'})`))),
       h('div', { class: 'droite' },
+        chiffre(ico('liste', 13), membre.etapesFaites || 0, 'étape(s) cochée(s)'),
+        chiffre(ico('bulle', 13), membre.commentaires || 0, 'commentaire(s)'),
         membre.manquants ? badge(`${membre.manquants} manquant(s)`, 'danger') : null,
-        h('b', { style: { fontSize: '16px' } }, membre.taux + ' %')))))
+        h('b', { style: { fontSize: '16px', minWidth: '46px', textAlign: 'right' } },
+          membre.lives ? membre.taux + ' %' : '—')))))
 }
+
+/** Un petit compteur avec son dessin, pour la colonne de droite. */
+const chiffre = (dessin, valeur, titre) => h('span', {
+  class: 'piece s-chiffre', title: `${valeur} ${titre}`
+}, dessin, String(valeur))
 
 function repartition (liste) {
   const total = liste.reduce((somme, item) => somme + item.valeur, 0)
@@ -176,7 +257,10 @@ function repartition (liste) {
       const part = Math.round(100 * item.valeur / total)
       return h('div', {},
         h('div', { style: { display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '7px' } },
-          h('span', {}, item.icone),
+          h('span', {
+            class: 'piece',
+            style: { color: `var(--${item.ton})` }
+          }, ico(item.symbole, 15)),
           h('b', { style: { fontSize: '13.5px' } }, item.libelle),
           h('span', { style: { marginLeft: 'auto', fontSize: '13px', color: 'var(--muted)' } },
             `${item.valeur} · ${part} %`)),

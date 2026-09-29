@@ -38,6 +38,9 @@ plus lue du tout.
 |---|---|---|
 | Séances, étapes, commentaires, rapports, tickets | oui | oui |
 | Modifier un rapport déjà envoyé | oui | oui |
+| Voir son propre tableau de bord | oui | oui |
+| Voir celui d'un collègue, ou de toute l'équipe | oui | non |
+| Voir le journal « Dernières actions » | oui | non |
 | Ajouter, modifier, supprimer un membre | oui | non |
 | Poser ou retirer un mot de passe | oui | son propre seulement |
 | Nommer un administrateur | oui | non |
@@ -269,21 +272,38 @@ durée de traitement.
 
 ### 7. Tableau de bord
 
-Huit indicateurs, chacun cliquable pour aller à l'écran correspondant :
+**Chacun voit le sien.** Un technicien y trouve ses propres chiffres : ses
+séances du jour, les siennes restées sans rapport, ses rapports, et ce qu'il
+a fait de ses mains — **étapes cochées** et **commentaires écrits** sur les
+trente derniers jours. Ces deux compteurs remplacent chez lui les chiffres du
+support, qui ne disent rien de son travail.
 
-lives du jour · rapports envoyés · lives sans rapport · incidents · incidents
-critiques · tickets support ouverts · temps moyen de résolution · taux de
-couverture.
+**L'administrateur choisit.** Un sélecteur en tête d'écran bascule entre
+*Toute l'équipe* et n'importe quel membre. En vue d'équipe il retrouve les
+huit indicateurs généraux, et le **Suivi par responsable** : pour chacun, la
+part de séances couvertes, les rapports en retard, les étapes cochées et les
+commentaires. Les personnes sans séance sur la période y restent affichées —
+une ligne à zéro dit quelque chose, son absence passerait pour un oubli.
 
-Puis la journée en cours, les séances sans rapport à relancer, un graphe des
-quatorze derniers jours, la répartition des états de séance, l'historique des
-rapports et le suivi par responsable.
+Le filtrage est fait par le serveur : un technicien qui ajouterait `?pour=`
+dans l'adresse recevrait quand même son propre tableau. Cacher un bouton
+n'est pas une permission.
+
+Puis la journée en cours, les séances sans rapport, un graphe des quatorze
+derniers jours, la répartition des états de séance et l'historique des
+rapports — tous filtrés de la même façon.
+
+Les étapes et les commentaires sont comptés **par nom d'auteur** et non par
+identifiant, comme `responsable_nom` sur un rapport : la trace survit ainsi à
+la suppression d'une fiche, mais renommer quelqu'un détacherait son
+historique.
 
 ---
 
 ## Créer, modifier, supprimer
 
-Tout est modifiable par n'importe quel utilisateur, partout :
+Tout est modifiable par n'importe quel utilisateur, partout — sauf ce que le
+tableau des rôles réserve à l'administrateur :
 
 | Objet | Créer | Modifier | Supprimer |
 |---|---|---|---|
@@ -413,10 +433,12 @@ Le thème clair / sombre est partagé avec l'outil 2-up.
 
 Menu « Connecté en tant que », en haut à droite :
 
-* **Tout remettre à zéro** — efface rapports, lives, tickets, messages,
-  équipe, journal et dossiers d'archive. L'application repart entièrement
-  vide et le reste après un redémarrage. Chaque écran explique alors quoi
-  faire, et le premier rapport propose de créer le premier technicien.
+* **Tout remettre à zéro** — **retiré du menu.** L'action efface rapports,
+  lives, tickets, messages, équipe, comptes, journal et dossiers d'archive :
+  rien ne justifie de la laisser à portée de clic sur une installation qui
+  travaille. La route `POST /api/suivi/reinitialiser` existe toujours,
+  réservée à l'administrateur, pour repartir de zéro en connaissance de
+  cause. L'application repasse alors par sa première configuration.
 * **Jeu de démonstration** — remplit l'application avec un exemple complet
   (cinq techniciens, deux semaines de lives, rapports et tickets) pour essayer
   sans rien saisir. Désactivé par défaut, voir `SUIVI_DEMO`.

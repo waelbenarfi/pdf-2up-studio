@@ -2,10 +2,9 @@
 
 import {
   api, etat, h, $, remplir, route, aller, demarrerNavigation, dessiner,
-  chargerPersonnes, deconnecter, essayer, toast, initiales, aujourdhui,
+  chargerPersonnes, deconnecter, initiales, aujourdhui,
   routeCourante, moiMeme
 } from './noyau.js'
-import { confirmer } from './ui.js'
 import { ico } from './icones.js'
 import { ouvrirMotDePasse } from './vues/equipe.js'
 import { vueTableau } from './vues/tableau.js'
@@ -123,13 +122,6 @@ function menuProfil () {
     }, h('span', { class: 's-lien-ico' }, ico('equipe')),
     h('span', {}, 'Gérer l’équipe'))
     : null,
-  etat.admin
-    ? h('button', {
-      class: 's-lien', style: { color: 'var(--danger)' },
-      onclick: () => { menu.remove(); toutRemettreAZero() }
-    }, h('span', { class: 's-lien-ico' }, ico('balai')),
-    h('span', {}, 'Tout remettre à zéro'))
-    : null,
   h('div', { class: 's-sep', style: { margin: '8px 4px' } }),
   h('button', {
     class: 's-lien',
@@ -147,26 +139,11 @@ function menuProfil () {
   }, 0)
 }
 
-function toutRemettreAZero () {
-  confirmer({
-    titre: 'Tout remettre à zéro ?',
-    texte: 'Rapports, lives, tickets, messages, membres de l’équipe et journal '
-      + 'seront effacés, ainsi que les dossiers d’archive écrits sur le disque. '
-      + 'L’application repart entièrement vide, prête pour vos vraies données. '
-      + 'Cette action est définitive.',
-    bouton: 'Tout effacer',
-    surOui: () => rejouer(() => api.post('/reinitialiser'),
-      'Tout est remis à zéro. Commencez par ajouter votre équipe.')
-  })
-}
-
-async function rejouer (action, message) {
-  const fait = await essayer(action, message)
-  if (!fait) return
-  // la remise à zéro efface aussi les comptes : on repasse par l'installation
-  localStorage.removeItem('suivi-moi')
-  location.href = '/connexion'
-}
+// « Tout remettre à zéro » a été retiré du menu : la remise à zéro efface
+// l'équipe, les comptes, les rapports et les dossiers d'archive, et rien ne
+// justifie de laisser ce bouton à portée de clic sur une installation qui
+// travaille. La route POST /api/suivi/reinitialiser existe toujours, réservée
+// à l'administrateur, pour repartir de zéro en connaissance de cause.
 
 /* -------------------------------------------------------------- thème */
 function appliquerTheme (theme) {

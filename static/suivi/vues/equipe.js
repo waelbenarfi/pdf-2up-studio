@@ -12,10 +12,12 @@ import {
 import { ico } from '../icones.js'
 
 export async function vueEquipe () {
+  // « Dernières actions » est le relevé de toute l'équipe : seul
+  // l'administrateur le demande, et le serveur refuse aux autres.
   const [personnes, bord, journal] = await Promise.all([
     api.get('/personnes'),
     api.get('/tableau'),
-    api.get('/journal', { limite: 25 })
+    etat.admin ? api.get('/journal', { limite: 25 }) : Promise.resolve(null)
   ])
   const chiffres = new Map(bord.equipe.map(item => [item.id, item]))
   const sansMdp = personnes.filter(p => p.actif && !p.aMotDePasse)
@@ -49,25 +51,27 @@ export async function vueEquipe () {
             ico('plus', 15), 'Ajouter un membre')
           : null
       })),
-    carte({
-      titre: 'Dernières actions',
-      sous: 'Qui a fait quoi, et quand.',
-      actions: [h('button', { class: 'b petit', onclick: () => aller('rapports') },
-        'Voir les rapports')]
-    },
-    tableau({
-      colonnes: [{ titre: 'Quand', largeur: '170px' }, { titre: 'Qui', largeur: '190px' },
-        { titre: 'Action' }, { titre: 'Détail' }],
-      lignes: journal,
-      rendu: (ligne) => [
-        h('span', { class: 'discret' }, momentDe(ligne.quand)),
-        ligne.qui || '—',
-        h('span', { class: 'principal' }, ligne.action),
-        h('span', { class: 'discret' },
-          [ligne.cible, ligne.detail].filter(Boolean).join(' · ') || '—')
-      ],
-      message: vide({ dessin: 'liste', titre: 'Journal vide' })
-    }))
+    journal
+      ? carte({
+        titre: 'Dernières actions',
+        sous: 'Qui a fait quoi, et quand · visible de l’administrateur seul',
+        actions: [h('button', { class: 'b petit', onclick: () => aller('rapports') },
+          'Voir les rapports')]
+      },
+      tableau({
+        colonnes: [{ titre: 'Quand', largeur: '170px' }, { titre: 'Qui', largeur: '190px' },
+          { titre: 'Action' }, { titre: 'Détail' }],
+        lignes: journal,
+        rendu: (ligne) => [
+          h('span', { class: 'discret' }, momentDe(ligne.quand)),
+          ligne.qui || '—',
+          h('span', { class: 'principal' }, ligne.action),
+          h('span', { class: 'discret' },
+            [ligne.cible, ligne.detail].filter(Boolean).join(' · ') || '—')
+        ],
+        message: vide({ dessin: 'liste', titre: 'Journal vide' })
+      }))
+      : null
   ]
 }
 

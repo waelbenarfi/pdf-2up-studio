@@ -583,6 +583,12 @@ table.s-tableau { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .ic { flex: none; display: inline-block; vertical-align: -.18em; }
 /* un compteur precede de son dessin : trombone 3, bulle 2... */
 .piece { display: inline-flex; align-items: center; gap: 4px; }
+/* dans le releve d'equipe : un chiffre lisible sous son dessin */
+.s-chiffre {
+  padding: 3px 9px; border-radius: 8px; font-size: 12px; font-weight: 650;
+  color: var(--muted); background: var(--surface-2);
+  font-variant-numeric: tabular-nums;
+}
 /* le dessin qui annonce un type de fichier ou de dossier */
 .genre { display: inline-flex; align-items: center; color: var(--muted); }
 .s-toast .marque { display: inline-flex; align-items: center; }

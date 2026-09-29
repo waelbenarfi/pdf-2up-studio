@@ -472,11 +472,25 @@ def dossier():
 # ------------------------------------------------------------------ divers
 @suivi_bp.route("/api/suivi/tableau")
 def tableau():
-    return ok(service.tableau())
+    """Le tableau de bord de la personne connectée, ou celui qu'elle demande.
+
+    Un technicien ne voit que le sien : le filtre est posé ici et non dans
+    l'écran, sinon il suffirait de changer un paramètre dans l'adresse pour
+    lire les chiffres d'un collègue.
+    """
+    qui = auth.utilisateur()
+    if not auth.est_admin():
+        return ok(service.tableau(qui["id"]))
+    demande = _arg("pour")
+    if demande in (None, "", "equipe"):
+        return ok(service.tableau(None))
+    return ok(service.tableau(service._entier(demande)))
 
 
 @suivi_bp.route("/api/suivi/journal")
+@auth.exiger_admin
 def journal():
+    """Réservé à l'administrateur : c'est le relevé de toute l'équipe."""
     return ok(service.journal(int(request.args.get("limite", 120))))
 
 

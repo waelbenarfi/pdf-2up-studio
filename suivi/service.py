@@ -295,6 +295,64 @@ def supprimer_live(ident, par=""):
     return {"supprime": True}
 
 
+def importer_lives(lignes, responsables=(), par=""):
+    """Crée des séances en série et les répartit à tour de rôle.
+
+    Pensé pour reprendre un mois entier d'un autre outil. Deux précautions :
+
+    * les séances sont triées par date et heure **avant** la répartition,
+      sinon l'ordre du fichier déciderait de qui hérite des soirées chargées ;
+    * une séance déjà présente au même jour, à la même heure et sous le même
+      titre est ignorée, pour qu'un import relancé ne double pas le planning.
+
+    Rien n'est écrit si une seule ligne est refusée : un import à moitié
+    passé est pire qu'un import refusé, on ne sait plus où on en est.
+    """
+    if not isinstance(lignes, (list, tuple)) or not lignes:
+        raise Refus("Aucune séance à importer.")
+    if len(lignes) > 2000:
+        raise Refus("Import trop volumineux (2000 séances au maximum).")
+
+    equipe = [_entier(i) for i in (responsables or []) if _entier(i)]
+    connus = {p["id"] for p in personnes(True)}
+    inconnus = [i for i in equipe if i not in connus]
+    if inconnus:
+        raise Refus("Responsable inconnu ou inactif : %s."
+                    % ", ".join(str(i) for i in inconnus))
+
+    # tout valider d'abord, n'ecrire qu'ensuite
+    preparees = []
+    for rang, brute in enumerate(lignes, 1):
+        try:
+            champs = _valeurs_live(brute or {})
+        except Refus as souci:
+            raise Refus("Ligne %d : %s" % (rang, souci))
+        preparees.append(champs)
+
+    preparees.sort(key=lambda c: (c["date"], c["heure"] or "99:99"))
+
+    crees, ignorees = [], []
+    quand = db.maintenant()
+    for index, champs in enumerate(preparees):
+        double = db.un(
+            "SELECT id FROM lives WHERE date = ? AND heure = ? AND titre = ?",
+            (champs["date"], champs["heure"], champs["titre"]))
+        if double:
+            ignorees.append("%s %s · %s" % (champs["date"], champs["heure"],
+                                            champs["titre"]))
+            continue
+        if equipe:
+            champs["responsable_id"] = equipe[len(crees) % len(equipe)]
+        champs["cree_le"] = champs["maj_le"] = quand
+        crees.append(db.inserer("lives", champs))
+
+    journaliser("Import de séances", "%d séance(s)" % len(crees),
+                "%d ignorée(s) · %d responsable(s)" % (len(ignorees), len(equipe)),
+                par)
+    return {"crees": len(crees), "ignorees": ignorees,
+            "responsables": len(equipe)}
+
+
 def repartir(date, par=""):
     """Distribue les lives d'une journee entre les techniciens actifs."""
     equipe = personnes(True)

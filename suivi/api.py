@@ -290,6 +290,15 @@ def lives():
         recherche=_arg("q", "")))
 
 
+@suivi_bp.route("/api/suivi/lives/importer", methods=["POST"])
+@auth.exiger_admin
+def importer():
+    """Reprend un lot de seances venu d'ailleurs et le repartit."""
+    corps = _corps()
+    return ok(service.importer_lives(corps.get("lignes"),
+                                     corps.get("responsables"), _qui()))
+
+
 @suivi_bp.route("/api/suivi/lives/repartir", methods=["POST"])
 def repartir():
     corps = _corps()

@@ -181,6 +181,30 @@ rôle entre tous les techniciens.
 Chaque personne retrouve ensuite ses seules séances (filtre *Responsable* sur
 l'écran Séances). Les flèches ‹ › et le sélecteur de date changent de journée.
 
+#### Importer un lot de séances
+
+Bouton **Importer** (administrateur seulement) : on colle le tableau exporté
+d'un autre outil — tabulations, points-virgules ou virgules, avec ou sans
+ligne d'en-tête. Les colonnes sont reconnues par leur nom (*date*, *heure*,
+*heure de fin*, *séance* / *matière* / *cours*, *professeur*, *plateforme*)
+quel que soit leur ordre ; sans en-tête, l'ordre `date, heure, titre,
+professeur, plateforme` est supposé. Les dates passent en `JJ/MM/AAAA`,
+`AAAA-MM-JJ` ou `JJ-MM-AA`, les heures en `19:30`, `19h30` ou `7:30 PM`.
+
+L'aperçu montre, **avant** d'écrire quoi que ce soit : combien de séances ont
+été comprises, sur quelle période, **qui recevra quoi**, et les lignes
+écartées avec leur raison. On coche les personnes entre lesquelles répartir —
+décocher quelqu'un suffit à l'exclure du lot.
+
+Trois précautions :
+
+* les séances sont triées par date et heure **avant** la répartition, sinon
+  l'ordre du fichier déciderait de qui hérite des soirées chargées ;
+* une séance déjà présente au même jour, à la même heure et sous le même
+  titre est **ignorée** : relancer un import ne double pas le planning ;
+* si une seule ligne est refusée, **rien n'est écrit** — un import à moitié
+  passé est pire qu'un import refusé, on ne sait plus où on en est.
+
 #### Les étapes d'une séance
 
 Chaque live porte la même liste de sept étapes, dans l'ordre de la journée.

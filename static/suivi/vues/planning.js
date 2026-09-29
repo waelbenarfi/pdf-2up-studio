@@ -12,6 +12,7 @@ import {
 } from '../ui.js'
 import { ouvrirFormulaire, ouvrirRapportDe } from './rapports.js'
 import { badgeTaches, boutonTaches, puceTaches } from './taches.js'
+import { ouvrirImport } from './import.js'
 
 import { ico } from '../icones.js'
 export async function vuePlanning (params) {
@@ -64,6 +65,10 @@ export async function vuePlanning (params) {
         onclick: () => repartir(date),
         disabled: !lives.length || !equipe.length
       }, ico('echange', 15), 'Répartir'),
+      etat.admin
+        ? h('button', { class: 'b', onclick: () => ouvrirImport() },
+          ico('recevoir', 15), 'Importer')
+        : null,
       h('button', { class: 'b primaire', onclick: () => ouvrirLive({ date }) },
         ico('plus', 15), 'Nouveau live')
     ]

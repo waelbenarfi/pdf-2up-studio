@@ -78,6 +78,14 @@ export async function vueEquipe () {
 const roleDe = (cle) => (CONST.roles || []).find(r => r.cle === cle)
   || { libelle: cle, ton: 'muted' }
 
+/** « Employé du mois · Août 2026 », ou le compte s'il y en a plusieurs. */
+function titreLisible (personne) {
+  const [annee, numero] = String(personne.titre_mois || '').split('-')
+  const mois = (CONST.mois || [])[Number(numero) - 1]
+  if (personne.titres > 1) return `employé du mois × ${personne.titres}`
+  return mois ? `employé du mois · ${mois} ${annee}` : 'employé du mois'
+}
+
 function fiche (personne, chiffres) {
   const moi = etat.moi === personne.id
   const role = roleDe(personne.role)
@@ -103,7 +111,12 @@ function fiche (personne, chiffres) {
   h('div', { class: 'b-groupe' },
     personne.aMotDePasse
       ? badge('peut se connecter', 'ok', ico('cadenas', 12))
-      : badge('accès à créer', 'warn', ico('cadenas_ouvert', 12))),
+      : badge('accès à créer', 'warn', ico('cadenas_ouvert', 12)),
+    // une distinction se porte : elle doit se voir sur la fiche, pas
+    // seulement au fond de l'écran Performance
+    personne.titre_mois
+      ? badge(titreLisible(personne), 'accent', ico('bouclier', 12))
+      : null),
   personne.email || personne.telephone
     ? h('div', { style: { fontSize: '12.5px', color: 'var(--muted)' } },
         [personne.email, personne.telephone].filter(Boolean).join(' · '))

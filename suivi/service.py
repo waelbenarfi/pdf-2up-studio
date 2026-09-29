@@ -98,8 +98,13 @@ def personnes(actifs_seulement=False):
            " CASE WHEN COALESCE(c.mdp, '') != '' THEN 1 ELSE 0 END AS a_mdp,"
            " COALESCE(c.derniere, '') AS derniere,"
            " COALESCE(c.mdp_le, '') AS mdp_le,"
-           " COALESCE(c.maj_par, '') AS mdp_par"
-           " FROM personnes p LEFT JOIN comptes c ON c.personne_id = p.id")
+           " COALESCE(c.maj_par, '') AS mdp_par,"
+           " COALESCE(d.dernier, '') AS titre_mois,"
+           " COALESCE(d.combien, 0) AS titres"
+           " FROM personnes p LEFT JOIN comptes c ON c.personne_id = p.id"
+           " LEFT JOIN (SELECT personne_id, MAX(mois) AS dernier,"
+           "            COUNT(*) AS combien FROM distinctions"
+           "            GROUP BY personne_id) d ON d.personne_id = p.id")
     if actifs_seulement:
         sql += " WHERE p.actif = 1"
     lignes = db.tous(sql + " ORDER BY p.actif DESC, p.nom")
@@ -1024,6 +1029,7 @@ def tableau(pour=None):
         "series": _series(pour=pour),
         "repartition": _repartition(mois),
         "equipe": _classement(depuis),
+        "distinction": derniere_distinction(),
     }
     if qui:
         sortie["indicateurs"].update(_activite(qui["id"], depuis))
@@ -1271,6 +1277,19 @@ def _quand(texte):
         return datetime.datetime.fromisoformat(str(texte or ""))
     except ValueError:
         return None
+
+
+def derniere_distinction():
+    """La distinction la plus récente, tous mois confondus.
+
+    Le tableau de bord ouvre sur le mois courant alors qu'on récompense
+    presque toujours le mois écoulé : sans cela, l'intéressé ne voyait
+    jamais rien, et une reconnaissance que personne ne voit n'en est pas une.
+    """
+    return db.un(
+        "SELECT d.*, p.nom, p.couleur FROM distinctions d"
+        " JOIN personnes p ON p.id = d.personne_id"
+        " ORDER BY d.mois DESC, d.id DESC LIMIT 1")
 
 
 def distinction_du_mois(mois):

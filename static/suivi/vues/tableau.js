@@ -5,7 +5,7 @@
 // posé par le serveur : ce sélecteur ne fait que demander.
 
 import {
-  api, etat, h, dateLongue, dateCourte, ilYA, duree, aller, personneDe
+  CONST, api, etat, h, dateLongue, dateCourte, ilYA, duree, aller, personneDe
 } from '../noyau.js'
 import {
   carte, kpi, vide, badge, badgeEtat, badgeStatutLive, pastille, tableau,
@@ -64,6 +64,7 @@ export async function vueTableau (params) {
       sous: `${k.rapportsEnRetard} rapport(s) envoyé(s) en retard` }))
 
   return [
+    annonceDistinction(data.distinction),
     etat.admin ? selecteur(pour, data) : null,
     perso && etat.admin
       ? info(`Vous regardez le tableau de bord de ${data.nom}. `
@@ -116,6 +117,32 @@ export async function vueTableau (params) {
       }, equipe(data.equipe))
       : null
   ]
+}
+
+/**
+ * L'employé du mois, annoncé là où tout le monde passe.
+ *
+ * L'écran Performance s'ouvre sur le mois courant alors qu'on récompense le
+ * mois écoulé : l'intéressé pouvait être désigné sans jamais l'apprendre.
+ * Une reconnaissance que personne ne voit n'en est pas une.
+ */
+function annonceDistinction (titre) {
+  if (!titre) return null
+  const moi = titre.personne_id === etat.moi
+  const [annee, numero] = String(titre.mois || '').split('-')
+  const mois = (CONST.mois || [])[Number(numero) - 1]
+  const quand = mois ? `${mois} ${annee}` : titre.mois
+
+  return h('div', { class: `s-annonce ${moi ? 'moi' : ''}` },
+    h('span', { class: 'medaille' }, ico('bouclier', 24)),
+    h('div', { class: 'corps' },
+      h('small', {}, `Employé du mois · ${quand}`),
+      h('b', {}, moi ? `Bravo, c’est vous !` : titre.nom),
+      titre.motif ? h('p', {}, titre.motif) : null),
+    h('button', {
+      class: 'b petit',
+      onclick: () => aller('performance', { mois: titre.mois })
+    }, 'Voir le relevé'))
 }
 
 /** Choix de la personne regardée : réservé à l'administrateur. */

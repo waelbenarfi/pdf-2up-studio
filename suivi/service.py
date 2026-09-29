@@ -244,6 +244,52 @@ def creer_professeur(valeurs, par=""):
     return db.un("SELECT * FROM professeurs WHERE id = ?", (ident,))
 
 
+def importer_professeurs(lignes, par=""):
+    """Reprend un répertoire entier d'un coup.
+
+    Un professeur déjà connu n'est pas recréé : son numéro est complété s'il
+    manquait, et laissé tel quel sinon. Relancer l'import ne fait donc pas
+    de doublons et n'écrase pas une correction faite à la main.
+    """
+    if not isinstance(lignes, (list, tuple)) or not lignes:
+        raise Refus("Aucun professeur à importer.")
+    if len(lignes) > 500:
+        raise Refus("Import trop volumineux (500 professeurs au maximum).")
+
+    preparees = []
+    for rang, brute in enumerate(lignes, 1):
+        try:
+            preparees.append(_valeurs_professeur(brute or {}))
+        except Refus as souci:
+            raise Refus("Ligne %d : %s" % (rang, souci))
+
+    crees, completes, connus = 0, [], []
+    quand = db.maintenant()
+    for champs in preparees:
+        existant = db.un("SELECT * FROM professeurs WHERE nom = ?",
+                         (champs["nom"],))
+        if existant:
+            if champs["telephone"] and not existant["telephone"]:
+                db.modifier("professeurs", existant["id"],
+                            {"telephone": champs["telephone"]})
+                completes.append(champs["nom"])
+            else:
+                connus.append(champs["nom"])
+            continue
+        champs["cree_le"] = quand
+        ident = db.inserer("professeurs", champs)
+        # les séances déjà saisies sous ce nom retrouvent leur fiche
+        db.executer("UPDATE lives SET professeur_id = ?"
+                    " WHERE professeur_id IS NULL AND formateur = ?",
+                    (ident, champs["nom"]))
+        crees += 1
+
+    journaliser("Import de professeurs", "%d ajouté(s)" % crees,
+                "%d complété(s) · %d déjà connu(s)"
+                % (len(completes), len(connus)), par)
+    return {"crees": crees, "completes": completes, "connus": connus}
+
+
 def modifier_professeur(ident, valeurs, par=""):
     actuel = db.un("SELECT * FROM professeurs WHERE id = ?", (ident,))
     if not actuel:

@@ -293,6 +293,13 @@ def professeurs():
     return ok(service.professeurs(_arg("actifs") == "1"))
 
 
+@suivi_bp.route("/api/suivi/professeurs/importer", methods=["POST"])
+@auth.exiger_admin
+def importer_professeurs():
+    """Reprend un repertoire entier colle d'un coup."""
+    return ok(service.importer_professeurs(_corps().get("lignes"), _qui()))
+
+
 @suivi_bp.route("/api/suivi/professeurs/fiabilite")
 def fiabilite():
     """Ce que les rapports disent des professeurs, une fois additionnés."""

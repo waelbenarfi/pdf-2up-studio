@@ -6,7 +6,7 @@
 // semaines. Le numéro appartient à l'application.
 
 import {
-  api, etat, h, essayer, rafraichir, aller
+  api, etat, h, remplir, essayer, rafraichir, aller, toast, chargerProfesseurs
 } from '../noyau.js'
 import {
   carte, vide, tableau, modale, confirmer, champTexte, champZone, valeurs,
@@ -47,7 +47,9 @@ export async function vueProfesseurs (params) {
         ? 'Leur numéro apparaît sur l’étape « Appeler le professeur ».'
         : 'Consultable par toute l’équipe ; seul l’administrateur le modifie.',
       actions: etat.admin
-        ? [h('button', { class: 'b primaire', onclick: () => ouvrirProfesseur({}) },
+        ? [h('button', { class: 'b', onclick: () => ouvrirImportProfs() },
+          ico('recevoir', 15), 'Importer'),
+        h('button', { class: 'b primaire', onclick: () => ouvrirProfesseur({}) },
           ico('plus', 15), 'Ajouter un professeur')]
         : []
     },
@@ -184,6 +186,116 @@ export function ouvrirProfesseur ({ prof = null, apres = null } = {}) {
         }, modif ? 'Enregistrer' : 'Ajouter'))
     ]
   })
+}
+
+/* ------------------------------------------------------------ import */
+/**
+ * Reprendre un répertoire entier. Cinquante professeurs saisis un par un,
+ * personne ne le fait — et un carnet à moitié rempli ne sert à rien.
+ */
+export function ouvrirImportProfs () {
+  let lu = { profs: [], ecartees: [] }
+  const apercu = h('div')
+  const zone = h('textarea', {
+    class: 's-import-zone', rows: 9, dir: 'auto',
+    placeholder: 'Collez ici le tableau des professeurs.\n\n'
+      + 'Nom\tTéléphone\tMatière\n'
+      + 'Hela Jbeli\t22 910 536\tMaths'
+  })
+
+  zone.addEventListener('input', relire)
+  zone.addEventListener('paste', () => setTimeout(relire, 0))
+
+  function relire () {
+    lu = lireProfs(zone.value)
+    const n = lu.profs.length
+    remplir(apercu,
+      n
+        ? h('div', { class: 's-import-resume' },
+          badge(`${n} professeur(s)`, 'ok', ico('equipe', 12)),
+          badge(`${lu.profs.filter(p => p.telephone).length} avec un numéro`,
+            'accent', ico('telephone', 12)),
+          lu.ecartees.length
+            ? badge(`${lu.ecartees.length} ligne(s) écartée(s)`, 'warn',
+              ico('alerte', 12))
+            : null)
+        : (lu.ecartees.length
+            ? info('Aucun professeur compris : la première colonne doit être '
+              + 'le nom.')
+            : h('div')),
+      n
+        ? tableau({
+          colonnes: [{ titre: 'Nom' }, { titre: 'Téléphone', largeur: '160px' },
+            { titre: 'Matière', largeur: '150px' }],
+          lignes: lu.profs.slice(0, 8),
+          rendu: (p) => [p.nom, p.telephone || '—', p.matiere || '—'],
+          message: vide({ titre: 'Rien à montrer' })
+        })
+        : null,
+      n > 8 ? h('p', { class: 's-info' }, `… et ${n - 8} autre(s).`) : null,
+      n
+        ? info('Un professeur déjà connu n’est pas recréé : son numéro est '
+          + 'complété s’il manquait, et laissé tel quel sinon.')
+        : null)
+  }
+
+  relire()
+  modale({
+    titre: 'Importer des professeurs',
+    sous: 'Nom, téléphone, matière — dans cet ordre ou avec une ligne d’en-tête.',
+    largeur: 'large',
+    corps: h('div', { style: { display: 'flex', flexDirection: 'column', gap: '14px' } },
+      zone, apercu),
+    actions: (fermer) => [
+      h('div', { class: 'droite' },
+        h('button', { class: 'b', onclick: fermer }, 'Annuler'),
+        h('button', {
+          class: 'b primaire',
+          onclick: async (e) => {
+            if (!lu.profs.length) return
+            e.target.disabled = true
+            const fait = await essayer(
+              () => api.post('/professeurs/importer', { lignes: lu.profs }))
+            e.target.disabled = false
+            if (!fait) return
+            fermer()
+            toast(`${fait.crees} professeur(s) ajouté(s)`
+              + (fait.completes.length
+                ? `, ${fait.completes.length} numéro(s) complété(s)` : '')
+              + (fait.connus.length
+                ? `, ${fait.connus.length} déjà connu(s)` : '') + '.')
+            await chargerProfesseurs()
+            rafraichir()
+          }
+        }, ico('recevoir', 15), 'Importer'))
+    ]
+  })
+}
+
+/** Nom, téléphone, matière. Le nom seul est obligatoire. */
+export function lireProfs (texte) {
+  const lignes = String(texte || '').split(/\r?\n/)
+    .map(l => l.trim()).filter(Boolean)
+  if (!lignes.length) return { profs: [], ecartees: [] }
+
+  const sep = ['\t', ';', '|', ','].reduce((meilleur, s) =>
+    Math.min(...lignes.map(l => l.split(s).length)) >
+    Math.min(...lignes.map(l => l.split(meilleur).length)) ? s : meilleur, '\t')
+
+  const profs = []; const ecartees = []
+  lignes.forEach((ligne, i) => {
+    const cases = ligne.split(sep).map(c => c.trim())
+    const nu = cases[0].toLowerCase()
+    // une ligne d'en-tête ne se distingue que par son premier mot
+    if (i === 0 && (nu === 'nom' || nu === 'professeur' || nu === 'name')) return
+    if (!cases[0]) { ecartees.push({ brut: ligne, raison: 'nom vide' }); return }
+    profs.push({
+      nom: cases[0],
+      telephone: (cases[1] || '').trim(),
+      matiere: (cases[2] || '').trim()
+    })
+  })
+  return { profs, ecartees }
 }
 
 function supprimer (prof) {

@@ -166,6 +166,11 @@ MDP_MIN = 8
 #                quatre -- sans recompenser l'accaparement, la part etant
 #                plafonnee et minoritaire.
 #
+# Une etape revient a QUI L'A COCHEE, pas au responsable de la seance : il
+# arrive qu'on fasse le travail d'un collegue, et le score doit le dire.
+# Couverture et ponctualite, elles, restent attachees au responsable : c'est
+# lui qui repond de ses seances.
+#
 # Volontairement absents : les incidents. Les compter en negatif apprend a
 # cacher les problemes et punit celui qui herite des seances difficiles.
 # Ils sont affiches comme contexte, jamais retires du score.
@@ -173,16 +178,21 @@ POIDS = [
     {"cle": "couverture", "libelle": "Couverture des rapports", "poids": 30,
      "aide": "Part de vos séances terminées qui ont bien reçu un rapport"},
     {"cle": "preparation", "libelle": "Préparation à temps", "poids": 30,
-     "aide": "Étapes d'avant-live cochées avant le début de la séance"},
+     "aide": "Parmi les étapes d'avant-live que VOUS avez cochées, celles "
+             "faites avant le début de la séance"},
     {"cle": "ponctualite", "libelle": "Ponctualité", "poids": 25,
      "aide": "Rapports envoyés dans l'heure qui suit la fin de la séance"},
     {"cle": "charge", "libelle": "Charge assurée", "poids": 15,
-     "aide": "Nombre de séances suivies, rapporté au plus chargé du mois"},
+     "aide": "Séances tenues et étapes cochées, y compris pour les autres, "
+             "rapportées au plus chargé du mois"},
 ]
 
 # En dessous, le score n'a pas de sens : trois seances parfaites battraient
 # quarante seances a 95 %. La personne reste affichee, mais hors classement.
+# Le second seuil ouvre le classement a qui n'a presque pas de seances a son
+# nom mais coche beaucoup d'etapes pour les autres.
 SEUIL_ELIGIBLE = 5
+SEUIL_ETAPES = 15
 
 # Au-dela de cette part d'etapes cochees apres la fin de la seance, l'ecran
 # le signale a l'administrateur. Ce n'est pas une sanction, c'est une
@@ -390,6 +400,29 @@ CREATE UNIQUE INDEX IF NOT EXISTS i_distinctions_mois ON distinctions(mois);
 # Consultees au demarrage pour savoir s'il reste quelque chose a creer.
 TABLES_AJOUTEES = ["taches", "notes", "comptes", "distinctions"]
 
+# Colonnes ajoutees apres coup. Une table se cree d'un bloc avec un simple
+# IF NOT EXISTS ; une colonne demande de regarder d'abord ce qui est en
+# place, et les deux moteurs ne le disent pas de la meme facon.
+#
+# `fait_par_id` et `auteur_id` doublent `fait_par` et `auteur`, qui restent
+# pour l'affichage et pour les archives deja ecrites. Le nom seul ne suffit
+# plus : le score mensuel compte qui a fait le travail, et renommer
+# quelqu'un detacherait son historique la veille de la prime.
+COLONNES_AJOUTEES = [
+    ("taches", "fait_par_id", "INTEGER"),
+    ("notes", "auteur_id", "INTEGER"),
+]
+
+# Rattachement des lignes deja ecrites : le nom est ce qu'on a.
+RECOLLAGES = [
+    ("UPDATE taches SET fait_par_id ="
+     " (SELECT p.id FROM personnes p WHERE p.nom = taches.fait_par)"
+     " WHERE fait_par_id IS NULL AND fait_par != ''"),
+    ("UPDATE notes SET auteur_id ="
+     " (SELECT p.id FROM personnes p WHERE p.nom = notes.auteur)"
+     " WHERE auteur_id IS NULL AND auteur != ''"),
+]
+
 # Un commentaire est libre mais pas sans fin : au-dela, c'est un rapport.
 NOTE_MAX = 1000
 
@@ -441,6 +474,7 @@ def constantes():
         "mdpMin": MDP_MIN,
         "poids": POIDS,
         "seuilEligible": SEUIL_ELIGIBLE,
+        "seuilEtapes": SEUIL_ETAPES,
         "seuilApresCoup": SEUIL_APRES_COUP,
         "fonction": FONCTION,
         "couleurs": COULEURS,

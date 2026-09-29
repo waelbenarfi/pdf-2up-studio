@@ -578,6 +578,58 @@ table.s-tableau { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .s-bloc-corps { padding: 14px; display: flex; flex-direction: column; gap: 13px; }
 .s-bloc-corps > .s-info:first-child { margin-top: 0; }
 
+/* ---------------------------------------------------- mouvement ------ */
+/* Des mouvements courts et discrets : ils disent d'où vient un élément,
+   ils ne font pas attendre. Rien au-delà de 260 ms, et tout se coupe pour
+   qui a demandé moins d'animations à son système. */
+@keyframes s-monte { from { opacity: 0; transform: translateY(8px); } }
+@keyframes s-fondu { from { opacity: 0; } }
+@keyframes s-glisse { from { opacity: 0; transform: translateX(-6px); } }
+
+.s-carte, .s-kpi, .s-perf, .s-colonne, .s-laureat {
+  animation: s-monte .26s cubic-bezier(.22, .61, .36, 1) both;
+}
+/* les tuiles arrivent l'une après l'autre : l'œil suit la rangée */
+.s-grille > *:nth-child(1) { animation-delay: 0ms; }
+.s-grille > *:nth-child(2) { animation-delay: 35ms; }
+.s-grille > *:nth-child(3) { animation-delay: 70ms; }
+.s-grille > *:nth-child(4) { animation-delay: 105ms; }
+.s-grille > *:nth-child(5) { animation-delay: 140ms; }
+.s-grille > *:nth-child(6) { animation-delay: 175ms; }
+.s-grille > *:nth-child(7) { animation-delay: 210ms; }
+.s-grille > *:nth-child(8) { animation-delay: 245ms; }
+.s-perf-liste > *:nth-child(2) { animation-delay: 45ms; }
+.s-perf-liste > *:nth-child(3) { animation-delay: 90ms; }
+.s-perf-liste > *:nth-child(4) { animation-delay: 135ms; }
+.s-perf-liste > *:nth-child(5) { animation-delay: 180ms; }
+
+.s-item, .s-jeton, .s-tache { animation: s-fondu .22s ease both; }
+.s-lien.actif::before { animation: s-glisse .2s ease both; }
+
+/* la barre se remplit au lieu d'apparaître remplie */
+.s-barre-progres > i { transition: width .5s cubic-bezier(.22, .61, .36, 1); }
+.s-kpi-val { transition: color .2s ease; }
+
+/* le contenu d'un écran se pose, il ne clignote pas */
+.s-contenu { animation: s-fondu .2s ease both; }
+
+.b, .s-badge, .s-tache, .s-jeton, .s-item, .s-kpi, .s-import-qui {
+  transition-timing-function: cubic-bezier(.22, .61, .36, 1);
+}
+.b:active:not(:disabled) { transform: translateY(1px); }
+.s-tache .case { transition: transform .14s cubic-bezier(.3, 1.4, .5, 1),
+  border-color .14s, background .14s; }
+.s-tache .case:active { transform: scale(.88); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ------------------------------------------------ performance -------- */
 .s-perf-liste { display: flex; flex-direction: column; gap: 14px; }
 

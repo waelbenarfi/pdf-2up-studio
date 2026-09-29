@@ -395,13 +395,25 @@ def taches_de(live_id):
     return sortie
 
 
-def _poser_tache(live_id, cle, fait, par=""):
-    """Ecrit une case. Sans controle : les appelants ont deja verifie."""
+def _id_de(nom):
+    """L'identifiant derriere un nom, s'il correspond a quelqu'un."""
+    trouve = db.un("SELECT id FROM personnes WHERE nom = ?", (str(nom or ""),))
+    return trouve["id"] if trouve else None
+
+
+def _poser_tache(live_id, cle, fait, par="", par_id=None):
+    """Ecrit une case. Sans controle : les appelants ont deja verifie.
+
+    L'auteur est garde deux fois : son nom pour l'affichage et pour les
+    archives deja ecrites, son identifiant pour le compte du mois. Le nom
+    seul ne suffit plus -- renommer quelqu'un detacherait son historique.
+    """
     ligne = db.un("SELECT id FROM taches WHERE live_id = ? AND cle = ?",
                   (live_id, cle))
     champs = {"fait": 1 if fait else 0,
               "fait_le": db.maintenant() if fait else "",
-              "fait_par": par if fait else ""}
+              "fait_par": par if fait else "",
+              "fait_par_id": (par_id or _id_de(par)) if fait else None}
     if ligne:
         db.modifier("taches", ligne["id"], champs)
     else:
@@ -480,7 +492,8 @@ def commenter(live_id, cle, texte, par=""):
 
     etape = next(item for item in schema.TACHES if item["cle"] == cle)
     db.inserer("notes", {"live_id": live_id, "cle": cle, "texte": texte,
-                         "auteur": par or "—", "cree_le": db.maintenant()})
+                         "auteur": par or "—", "auteur_id": _id_de(par),
+                         "cree_le": db.maintenant()})
     journaliser("Commentaire sur une étape", seance["titre"],
                 etape["libelle"], par)
     return {"live": live(live_id), "taches": taches_de(live_id)}
@@ -1013,25 +1026,24 @@ def tableau(pour=None):
         "equipe": _classement(depuis),
     }
     if qui:
-        sortie["indicateurs"].update(_activite(qui["nom"], depuis))
+        sortie["indicateurs"].update(_activite(qui["id"], depuis))
     return sortie
 
 
-def _activite(nom, depuis):
+def _activite(personne_id, depuis):
     """Ce que la personne a fait de ses mains, et non ce qu'on lui a confié.
 
-    Les étapes et les commentaires portent le nom de leur auteur et non son
-    identifiant — comme `responsable_nom` sur un rapport, pour que la trace
-    survive à la suppression d'une fiche. Le comptage se fait donc par nom :
-    renommer quelqu'un détacherait son historique.
+    Comptée par identifiant : une étape peut très bien avoir été cochée par
+    quelqu'un d'autre que le responsable de la séance, et c'est à celui qui
+    l'a faite qu'elle revient.
     """
     etapes = db.un(
         "SELECT COUNT(*) AS n FROM taches t JOIN lives l ON l.id = t.live_id"
-        " WHERE t.fait = 1 AND t.fait_par = ? AND l.date >= ?",
-        (nom, depuis))["n"]
+        " WHERE t.fait = 1 AND t.fait_par_id = ? AND l.date >= ?",
+        (personne_id, depuis))["n"]
     mots = db.un(
         "SELECT COUNT(*) AS n FROM notes m JOIN lives l ON l.id = m.live_id"
-        " WHERE m.auteur = ? AND l.date >= ?", (nom, depuis))["n"]
+        " WHERE m.auteur_id = ? AND l.date >= ?", (personne_id, depuis))["n"]
     return {"etapesFaites": etapes, "commentaires": mots}
 
 
@@ -1094,7 +1106,7 @@ def _classement(depuis):
             "taux": int(round(100.0 * len(faits) / len(attribues)))
                     if attribues else 100,
         }
-        ligne.update(_activite(personne["nom"], depuis))
+        ligne.update(_activite(personne["id"], depuis))
         sortie.append(ligne)
     sortie.sort(key=lambda item: (-item["taux"], -item["lives"]))
     return sortie
@@ -1156,6 +1168,13 @@ def performances(mois=None):
     for etape in etapes:
         par_seance.setdefault(etape["live_id"], []).append(etape)
 
+    # Les étapes reviennent à qui les a cochées, pas au responsable de la
+    # séance : il arrive qu'on fasse le travail d'un collègue, et le score
+    # doit le dire. Elles sont donc regroupées par auteur, pas par séance.
+    par_auteur = {}
+    for etape in etapes:
+        par_auteur.setdefault(etape["fait_par_id"], []).append(etape)
+
     brut = []
     for personne in personnes(True):
         miennes = [s for s in seances if s["responsable_id"] == personne["id"]]
@@ -1163,27 +1182,27 @@ def performances(mois=None):
                  if r["responsable_id"] == personne["id"]]
 
         a_temps = 0          # étapes d'avant-live cochées avant le début
-        attendues = 0
+        avant_faites = 0     # étapes d'avant-live cochées, par moi
         apres_coup = 0       # cochées après la fin : signal, pas sanction
         cochees = 0
-        for seance in miennes:
+        pour_autrui = 0      # cochées sur la séance de quelqu'un d'autre
+        for etape in par_auteur.get(personne["id"], []):
+            seance = par_live.get(etape["live_id"])
+            if not seance:
+                continue
+            cochees += 1
+            if seance["responsable_id"] != personne["id"]:
+                pour_autrui += 1
+            quand = _quand(etape["fait_le"])
             debut_live = _horodate(seance["date"], seance["heure"])
             fin_live = _horodate(seance["date"],
                                  seance["heure_fin"] or seance["heure"])
-            faites = {e["cle"]: e for e in par_seance.get(seance["id"], [])}
-            attendues += len(cles_avant)
-            for cle in cles_avant:
-                etape = faites.get(cle)
-                if not etape:
-                    continue
-                quand = _quand(etape["fait_le"])
+            if etape["cle"] in cles_avant:
+                avant_faites += 1
                 if quand and debut_live and quand <= debut_live:
                     a_temps += 1
-            for etape in faites.values():
-                cochees += 1
-                quand = _quand(etape["fait_le"])
-                if quand and fin_live and quand > fin_live:
-                    apres_coup += 1
+            if quand and fin_live and quand > fin_live:
+                apres_coup += 1
 
         couverts = len([s for s in miennes if s["id"] in avec_rapport])
         ponctuels = len([r for r in siens
@@ -1197,26 +1216,33 @@ def performances(mois=None):
             "couverts": couverts,
             "ponctuels": ponctuels,
             "etapesATemps": a_temps,
-            "etapesAttendues": attendues,
+            "etapesAttendues": avant_faites,
             "etapesCochees": cochees,
+            "pourAutrui": pour_autrui,
             "apresCoup": apres_coup,
             "incidents": len([r for r in siens if r["etat"] != "normale"]),
             "notes": {
                 "couverture": _part(couverts, len(miennes)),
-                "preparation": _part(a_temps, attendues),
+                "preparation": _part(a_temps, avant_faites),
                 "ponctualite": _part(ponctuels, len(siens)),
             },
         })
 
-    # la charge se juge les uns par rapport aux autres : le plus chargé du
-    # mois fait le 100, sinon un mois creux noterait tout le monde à zéro
-    plus_charge = max([p["seances"] for p in brut] or [0])
+    # La charge se juge les uns par rapport aux autres : le plus chargé du
+    # mois fait le 100, sinon un mois creux noterait tout le monde à zéro.
+    # Elle additionne les séances tenues et les étapes cochées — aider un
+    # collègue compte comme du travail, puisque c'en est.
+    for ligne in brut:
+        ligne["travail"] = ligne["seances"] + ligne["etapesCochees"]
+    plus_charge = max([p["travail"] for p in brut] or [0])
     poids = {item["cle"]: item["poids"] for item in schema.POIDS}
     for ligne in brut:
-        ligne["notes"]["charge"] = _part(ligne["seances"], plus_charge)
+        ligne["notes"]["charge"] = _part(ligne["travail"], plus_charge)
         ligne["score"] = int(round(sum(
             ligne["notes"][cle] * poids[cle] for cle in poids) / 100.0))
-        ligne["eligible"] = ligne["seances"] >= schema.SEUIL_ELIGIBLE
+        # éligible par ses séances, ou par le travail fait pour les autres
+        ligne["eligible"] = (ligne["seances"] >= schema.SEUIL_ELIGIBLE
+                             or ligne["etapesCochees"] >= schema.SEUIL_ETAPES)
         ligne["partApresCoup"] = _part(ligne["apresCoup"], ligne["etapesCochees"])
         ligne["doute"] = ligne["partApresCoup"] >= schema.SEUIL_APRES_COUP \
             and ligne["etapesCochees"] >= 5
@@ -1267,10 +1293,12 @@ def nommer_employe(mois, personne_id, motif="", par=""):
     if not ligne:
         raise Refus("Cette personne n'a pas de relevé pour ce mois.")
     if not ligne["eligible"]:
-        raise Refus("%s n'a suivi que %d séance(s) ce mois-ci : en dessous de "
-                    "%d, le score n'est pas comparable."
+        raise Refus("%s n'a suivi que %d séance(s) et coché que %d étape(s) "
+                    "ce mois-ci : en dessous de %d séances ou %d étapes, le "
+                    "score n'est pas comparable."
                     % (personne["nom"], ligne["seances"],
-                       schema.SEUIL_ELIGIBLE))
+                       ligne["etapesCochees"], schema.SEUIL_ELIGIBLE,
+                       schema.SEUIL_ETAPES))
 
     db.executer("DELETE FROM distinctions WHERE mois = ?", (mois,))
     db.inserer("distinctions", {

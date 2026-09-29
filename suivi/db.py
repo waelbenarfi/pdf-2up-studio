@@ -239,6 +239,7 @@ def initialiser(chemin, avec_demo=None):
     try:
         cnx.executescript(schema.DDL)
         cnx.commit()
+        rattraper_colonnes(_Connexion(cnx, False))
         deja = cnx.execute("SELECT valeur FROM parametres WHERE cle = 'installe'"
                            ).fetchone()
         if not deja:
@@ -270,6 +271,59 @@ def _existe(cnx, table):
     return bool(trouve and trouve["t"])
 
 
+def _table_la(cnx, table):
+    """La table existe-t-elle ? Chaque moteur le dit a sa facon."""
+    if cnx.postgres:
+        return _existe(cnx, table)
+    return bool(cnx.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (table,)).fetchone())
+
+
+def _colonnes_de(cnx, table):
+    if cnx.postgres:
+        lignes = cnx.execute(
+            "SELECT column_name FROM information_schema.columns"
+            " WHERE table_schema = 'public' AND table_name = ?",
+            (table,)).fetchall()
+        return {ligne["column_name"] for ligne in lignes}
+    lignes = cnx.execute("PRAGMA table_info(%s)" % table).fetchall()
+    return {ligne["name"] for ligne in lignes}
+
+
+def rattraper_colonnes(cnx):
+    """Ajoute les colonnes apparues apres coup, puis recolle l'existant.
+
+    `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` n'existe pas sous SQLite : on
+    regarde donc ce qui est en place avant d'ajouter. Idempotent, et sans
+    effet quand tout est deja la -- ce qui est le cas a chaque demarrage.
+    """
+    ajoutees = False
+    for table, colonne, genre in schema.COLONNES_AJOUTEES:
+        if not _table_la(cnx, table):
+            continue
+        if colonne in _colonnes_de(cnx, table):
+            continue
+        try:
+            cnx.execute("ALTER TABLE %s ADD COLUMN %s %s"
+                        % (table, colonne, genre))
+            ajoutees = True
+        except Exception:
+            # deux instances qui demarrent ensemble peuvent tenter le meme
+            # ajout : le perdant trouve la colonne deja la. Refuser de
+            # demarrer pour autant mettrait le site a terre.
+            cnx.brute.rollback()
+    if not ajoutees:
+        return False
+    for ordre in schema.RECOLLAGES:
+        try:
+            cnx.execute(ordre)
+        except Exception:
+            pass          # une table absente ne doit pas bloquer le demarrage
+    cnx.commit()
+    return True
+
+
 def _deja_installee(cnx):
     """Vrai si une precedente instance a fini l'installation.
 
@@ -283,18 +337,18 @@ def _deja_installee(cnx):
 
 
 def _rattraper_postgres(cnx):
-    """Cree les tables apparues apres l'installation d'origine.
+    """Cree les tables et colonnes apparues apres l'installation d'origine.
 
     Sans ce rattrapage une base de production, installee une fois pour
     toutes, ne verrait jamais une table nouvelle : `_deja_installee` coupe
     court avant le schema complet. Le test d'existence garde le demarrage a
     froid gratuit dans le cas normal, ou il n'y a rien a faire.
     """
-    if all(_existe(cnx, table) for table in schema.TABLES_AJOUTEES):
-        return
-    cnx.execute("SELECT pg_advisory_xact_lock(%d)" % _VERROU)
-    cnx.brute.cursor().execute(schema.ddl_postgres_ajouts())
-    cnx.commit()          # libere aussi le verrou
+    if not all(_existe(cnx, table) for table in schema.TABLES_AJOUTEES):
+        cnx.execute("SELECT pg_advisory_xact_lock(%d)" % _VERROU)
+        cnx.brute.cursor().execute(schema.ddl_postgres_ajouts())
+        cnx.commit()      # libere aussi le verrou
+    rattraper_colonnes(cnx)
 
 
 def _initialiser_postgres(avec_demo):
@@ -305,6 +359,7 @@ def _initialiser_postgres(avec_demo):
             return
         cnx.execute("SELECT pg_advisory_xact_lock(%d)" % _VERROU)
         cnx.brute.cursor().execute(schema.ddl_postgres())
+        rattraper_colonnes(cnx)
 
         # Une base deja peuplee mais sans le drapeau (import de donnees, par
         # exemple) ne doit surtout pas recevoir le jeu de demonstration.

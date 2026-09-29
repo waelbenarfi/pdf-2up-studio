@@ -131,9 +131,14 @@ function explication () {
       info('Les incidents ne retirent aucun point : les compter en négatif '
         + 'apprendrait à cacher les problèmes et punirait celui qui hérite '
         + 'des séances difficiles. Ils sont affichés comme contexte.'),
-      info(`En dessous de ${CONST.seuilEligible} séances dans le mois, la `
-        + 'personne reste affichée mais hors classement : trois séances '
-        + 'parfaites ne valent pas quarante séances à 95 %.'),
+      info('Une étape revient à celui qui l’a cochée, pas au responsable de '
+        + 'la séance : faire le travail d’un collègue compte pour celui qui '
+        + 'le fait. Couverture et ponctualité restent, elles, attachées au '
+        + 'responsable — c’est lui qui répond de ses séances.'),
+      info(`En dessous de ${CONST.seuilEligible} séances ou `
+        + `${CONST.seuilEtapes} étapes dans le mois, la personne reste `
+        + 'affichée mais hors classement : trois séances parfaites ne valent '
+        + 'pas quarante séances à 95 %.'),
       info('« Préparation à temps » ne compte que les étapes d’avant-live '
         + 'cochées avant le début de la séance, d’après l’horodatage du '
         + 'serveur. Tout cocher le lendemain n’y rapporte rien — c’est ce '
@@ -159,8 +164,13 @@ function fiche (ligne, data, mois) {
         gagnant ? badge('employé du mois', 'ok', ico('bouclier', 11)) : null),
       h('small', {}, ligne.eligible
         ? `${ligne.seances} séance(s) terminée(s) · ${ligne.rapports} rapport(s)`
-        : `${ligne.seances} séance(s) — hors classement, minimum `
-          + `${CONST.seuilEligible}`)),
+          + ` · ${ligne.etapesCochees} étape(s) cochée(s)`
+          + (ligne.pourAutrui
+            ? `, dont ${ligne.pourAutrui} pour un collègue`
+            : '')
+        : `${ligne.seances} séance(s), ${ligne.etapesCochees} étape(s) — hors `
+          + `classement : il en faut ${CONST.seuilEligible} ou `
+          + `${CONST.seuilEtapes}`)),
     h('div', { class: 's-perf-score' },
       h('b', {}, ligne.eligible ? String(ligne.score) : '—'),
       h('small', {}, ligne.eligible ? '/ 100' : 'non classé')),
@@ -175,11 +185,13 @@ function fiche (ligne, data, mois) {
     part('couverture', ligne.notes.couverture,
       `${ligne.couverts}/${ligne.seances} séance(s) avec rapport`),
     part('preparation', ligne.notes.preparation,
-      `${ligne.etapesATemps}/${ligne.etapesAttendues} étape(s) avant le live`),
+      `${ligne.etapesATemps}/${ligne.etapesAttendues} de vos étapes faites `
+      + 'avant le live'),
     part('ponctualite', ligne.notes.ponctualite,
       `${ligne.ponctuels}/${ligne.rapports} rapport(s) dans le délai`),
     part('charge', ligne.notes.charge,
-      `${ligne.seances} séance(s) sur ${data.plusCharge} au plus chargé`)),
+      `${ligne.seances} séance(s) + ${ligne.etapesCochees} étape(s) `
+      + `sur ${data.plusCharge} au plus chargé`)),
 
   h('div', { class: 's-perf-pied' },
     h('span', { class: 'piece' }, ico('alerte', 12),

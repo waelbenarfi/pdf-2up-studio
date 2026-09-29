@@ -343,7 +343,26 @@ que ce que la personne ne contrôle pas elle-même.
 | Couverture des rapports | 30 % | Le rapport existe ou n'existe pas |
 | Préparation à temps | 30 % | Étapes d'avant-live cochées **avant le début**, d'après l'horodatage du serveur |
 | Ponctualité | 25 % | Comparée à la fin **prévue** de la séance, que le technicien ne fixe pas |
-| Charge assurée | 15 % | Séances suivies, rapportées au plus chargé du mois |
+| Charge assurée | 15 % | Séances tenues **et** étapes cochées, rapportées au plus chargé du mois |
+
+### À qui revient une étape
+
+**À celui qui l'a cochée, pas au responsable de la séance.** Il arrive qu'on
+fasse le travail d'un collègue, et le score doit le dire : celui qui aide est
+crédité, celui qui n'a rien fait ne l'est pas. La fiche affiche d'ailleurs
+*« 34 étapes cochées, dont 9 pour un collègue »*.
+
+Couverture et ponctualité restent, elles, attachées au **responsable** : c'est
+lui qui répond de ses séances, même si quelqu'un d'autre lui a donné un coup
+de main.
+
+Quelqu'un qui n'a presque pas de séances à son nom mais coche beaucoup
+d'étapes pour les autres entre quand même au classement : l'éligibilité
+s'ouvre à **5 séances ou 15 étapes**.
+
+L'auteur est enregistré par **identifiant** et plus seulement par nom —
+renommer quelqu'un détachait son historique, ce qui n'est pas acceptable la
+veille d'une prime. Les lignes déjà écrites ont été recollées au démarrage.
 
 « Préparation à temps » est la garde la plus utile : cocher les sept cases le
 lendemain y rapporte **zéro**, alors que le nombre de cases cochées est

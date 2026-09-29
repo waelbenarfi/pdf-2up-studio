@@ -278,6 +278,31 @@ def _nom_de(ident):
     return (trouve or {}).get("nom", "—")
 
 
+# ------------------------------------------------------------ professeurs
+@suivi_bp.route("/api/suivi/professeurs", methods=["GET", "POST"])
+def professeurs():
+    """Le repertoire : tout le monde le consulte, l'administrateur l'ecrit.
+
+    Un technicien doit pouvoir lire le numero au moment d'appeler ; le tenir
+    a jour est une autre affaire.
+    """
+    if request.method == "POST":
+        if not auth.est_admin():
+            raise auth.Refus("Seul l'administrateur ajoute un professeur.")
+        return ok(service.creer_professeur(_corps(), _qui()))
+    return ok(service.professeurs(_arg("actifs") == "1"))
+
+
+@suivi_bp.route("/api/suivi/professeurs/<int:ident>",
+                methods=["PATCH", "PUT", "DELETE"])
+def professeur(ident):
+    if not auth.est_admin():
+        raise auth.Refus("Seul l'administrateur modifie le répertoire.")
+    if request.method == "DELETE":
+        return ok(service.supprimer_professeur(ident, _qui()))
+    return ok(service.modifier_professeur(ident, _corps(), _qui()))
+
+
 # ------------------------------------------------------------------- lives
 @suivi_bp.route("/api/suivi/lives", methods=["GET", "POST"])
 def lives():

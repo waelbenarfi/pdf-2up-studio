@@ -8,7 +8,7 @@ import {
 import {
   carte, vide, tableau, modale, confirmer, champTexte, champZone, champListe,
   valeurs, badgeStatutLive, badge, pastille, boutonIco, actionsLigne,
-  optionsPersonnes, optionsSimples, info
+  optionsPersonnes, optionsSimples, info, ajouter
 } from '../ui.js'
 import { ouvrirFormulaire, ouvrirRapportDe } from './rapports.js'
 import { badgeTaches, boutonTaches, puceTaches } from './taches.js'
@@ -193,11 +193,9 @@ export function ouvrirLive ({ live = null, date = null, apres = null } = {}) {
         aide: 'Vide = 1 h 30'
       })),
     h('div', { class: 's-lignes d2' },
-      // la colonne s'appelle toujours `formateur` en base : seul le mot
-      // affiché change, donc rien à migrer sur les 283 séances déjà saisies
-      champTexte(refs, 'formateur', 'Professeur', {
-        valeur: base.formateur, optionnel: true, exemple: 'Ex. Mr / Mme'
-      }),
+      // choisi dans le répertoire : c'est ce qui donne accès à son numéro
+      // depuis l'étape d'appel. Un nom tapé à la main reste accepté.
+      champProfesseur(refs, base),
       champListe(refs, 'plateforme', 'Plateforme',
         optionsSimples(CONST.plateformes, '—'), { valeur: base.plateforme })),
     h('div', { class: 's-lignes d2' },
@@ -239,6 +237,41 @@ export function ouvrirLive ({ live = null, date = null, apres = null } = {}) {
         }, modif ? 'Enregistrer' : 'Ajouter'))
     ]
   })
+}
+
+/**
+ * Le professeur : au répertoire, ou tapé à la main.
+ *
+ * Le choisir dans la liste relie la séance à sa fiche, donc à son numéro.
+ * « Autre » reste possible — on ne bloque pas une saisie parce qu'un
+ * professeur n'a pas encore été enregistré.
+ */
+function champProfesseur (refs, base) {
+  const connus = etat.professeurs || []
+  const choix = [
+    { valeur: '', libelle: '— Autre / à saisir —' },
+    ...connus.map(p => ({
+      valeur: p.id,
+      libelle: p.telephone ? `${p.nom} · ${p.telephone}` : p.nom
+    }))
+  ]
+  const boite = h('div', { class: 's-champ' })
+  const libre = champTexte(refs, 'formateur', null, {
+    valeur: base.formateur, exemple: 'Ex. Mr Mohamed'
+  })
+  const liste = champListe(refs, 'professeur_id', 'Professeur', choix, {
+    valeur: base.professeur_id ?? '',
+    optionnel: true,
+    onchoix: (e) => { libre.hidden = !!e.target.value }
+  })
+  libre.hidden = !!base.professeur_id
+  ajouter(boite, [liste, libre])
+  if (!connus.length) {
+    ajouter(boite, [h('span', { class: 'aide' },
+      'Aucun professeur au répertoire : leur numéro n’apparaîtra pas sur '
+      + 'l’étape d’appel.')])
+  }
+  return boite
 }
 
 export function supprimerLive (live) {

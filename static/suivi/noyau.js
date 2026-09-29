@@ -96,6 +96,7 @@ const CONNECTE = window.SUIVI_MOI || null
 
 export const etat = {
   personnes: [],
+  professeurs: [],
   moi: CONNECTE ? CONNECTE.id : null,
   moiNom: CONNECTE ? CONNECTE.nom : '',
   admin: !!(CONNECTE && CONNECTE.admin),
@@ -105,6 +106,15 @@ export const etat = {
 export async function chargerPersonnes () {
   etat.personnes = await api.get('/personnes')
   return etat.personnes
+}
+
+export async function chargerProfesseurs () {
+  try {
+    etat.professeurs = await api.get('/professeurs', { actifs: '1' })
+  } catch (_) {
+    etat.professeurs = []      // le répertoire n'est pas vital au démarrage
+  }
+  return etat.professeurs
 }
 
 export const moiMeme = () => etat.personnes.find(p => p.id === etat.moi) || null

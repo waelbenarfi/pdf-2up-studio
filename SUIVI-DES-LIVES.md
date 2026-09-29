@@ -243,6 +243,26 @@ rien n'est écrit à moitié. Le journal garde une ligne par validation, pas
 une par case. Fermer la fenêtre avec des cases en attente — par le bouton,
 la croix, la touche `Échap` ou un clic à côté — demande confirmation.
 
+#### Le numéro du professeur, sur l'étape d'appel
+
+La première étape de chaque séance est d'appeler le professeur. Son numéro a
+donc sa place dans l'application et non dans un carnet : l'écran
+**Professeurs** tient le répertoire — nom, téléphone, matière, remarque — et
+le numéro s'affiche en bouton d'appel directement sous *Appeler le
+professeur*. Sur un téléphone, un doigt suffit à composer.
+
+Une séance se relie à une fiche par le sélecteur **Professeur** du formulaire.
+Un nom tapé à la main reste accepté, et s'il correspond à une fiche existante
+le lien se fait tout seul — y compris à l'import, ce qui rend les numéros
+disponibles sur un mois entier repris d'ailleurs.
+
+Renommer un professeur met à jour ses séances. Le retirer du répertoire leur
+laisse son nom et ne leur enlève que le numéro : aucune séance n'est perdue
+pour un ménage dans le carnet.
+
+Tout le monde consulte le répertoire — il faut bien pouvoir appeler ; seul
+l'administrateur l'écrit.
+
 #### Commentaires sur une étape
 
 Chaque étape a son propre fil de commentaires, ouvert par la bulle à droite

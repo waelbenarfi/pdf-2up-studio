@@ -12,6 +12,7 @@ import {
 import { modale, badge, barreProgres, boutonIco, confirmer } from '../ui.js'
 import { ico } from '../icones.js'
 import { ouvrirRapportDe } from './rapports.js'
+import { boutonAppel } from './professeurs.js'
 
 const MOMENTS = CONST.moments || []
 export const TOTAL = (CONST.taches || []).length
@@ -247,7 +248,9 @@ export function ouvrirTaches (live, apres = null) {
     h('span', { class: 'ico' }, ico(etape.symbole, 17)),
     h('span', { class: 'corps' },
       h('b', {}, etape.libelle),
-      h('small', {}, sousTitre(etape, liee, coche, change))),
+      h('small', {}, sousTitre(etape, liee, coche, change)),
+      // le numéro là où on en a besoin : sur l'étape qui dit d'appeler
+      etape.cle === 'appel_prof' ? rappel() : null),
     h('span', { class: 'outils' },
       h('button', {
         class: `b ico petit ${nb ? 'parle' : ''}`,
@@ -321,6 +324,15 @@ export function ouvrirTaches (live, apres = null) {
         if (resultat) appliquer(resultat)
       }
     })
+  }
+
+  /** Le professeur de cette séance, et son numéro s'il est au répertoire. */
+  function rappel () {
+    if (!live.formateur) return null
+    const appel = boutonAppel(live.professeur_tel, 13)
+    return h('div', { class: 's-tache-appel' },
+      h('b', {}, live.formateur),
+      appel || h('span', { class: 'manque' }, 'numéro non renseigné'))
   }
 
   function sousTitre (etape, liee, coche, change) {

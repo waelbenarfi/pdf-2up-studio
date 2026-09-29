@@ -161,6 +161,71 @@ def supprimer_personne(ident, par=""):
     return {"supprime": True}
 
 
+# =============================================================== professeurs
+# La premiere etape de chaque seance est d'appeler le professeur : son
+# numero a sa place ici, pas dans un carnet a cote du clavier.
+def professeurs(actifs_seulement=False):
+    sql = ("SELECT pr.*, COUNT(l.id) AS seances"
+           " FROM professeurs pr LEFT JOIN lives l ON l.professeur_id = pr.id")
+    if actifs_seulement:
+        sql += " WHERE pr.actif = 1"
+    return db.tous(sql + " GROUP BY pr.id ORDER BY pr.actif DESC, pr.nom")
+
+
+def _valeurs_professeur(valeurs, base=None):
+    base = base or {}
+    return {
+        "nom": _texte(valeurs, "nom", base.get("nom", ""), obligatoire=True,
+                      etiquette="Nom du professeur"),
+        "telephone": _texte(valeurs, "telephone", base.get("telephone", "")),
+        "matiere": _texte(valeurs, "matiere", base.get("matiere", "")),
+        "note": _texte(valeurs, "note", base.get("note", "")),
+        "actif": 1 if valeurs.get("actif", base.get("actif", 1)) else 0,
+    }
+
+
+def creer_professeur(valeurs, par=""):
+    champs = _valeurs_professeur(valeurs)
+    double = db.un("SELECT id FROM professeurs WHERE nom = ?",
+                   (champs["nom"],))
+    if double:
+        raise Refus("« %s » est déjà dans le répertoire." % champs["nom"])
+    champs["cree_le"] = db.maintenant()
+    ident = db.inserer("professeurs", champs)
+    # les seances deja saisies sous ce nom retrouvent leur fiche
+    db.executer("UPDATE lives SET professeur_id = ?"
+                " WHERE professeur_id IS NULL AND formateur = ?",
+                (ident, champs["nom"]))
+    journaliser("Professeur ajouté", champs["nom"], champs["telephone"], par)
+    return db.un("SELECT * FROM professeurs WHERE id = ?", (ident,))
+
+
+def modifier_professeur(ident, valeurs, par=""):
+    actuel = db.un("SELECT * FROM professeurs WHERE id = ?", (ident,))
+    if not actuel:
+        raise Refus("Professeur introuvable.")
+    champs = _valeurs_professeur(valeurs, actuel)
+    db.modifier("professeurs", ident, champs)
+    # le nom affiche sur les seances suit la fiche
+    if champs["nom"] != actuel["nom"]:
+        db.executer("UPDATE lives SET formateur = ? WHERE professeur_id = ?",
+                    (champs["nom"], ident))
+    journaliser("Professeur modifié", champs["nom"], "", par)
+    return db.un("SELECT * FROM professeurs WHERE id = ?", (ident,))
+
+
+def supprimer_professeur(ident, par=""):
+    actuel = db.un("SELECT * FROM professeurs WHERE id = ?", (ident,))
+    if not actuel:
+        raise Refus("Professeur introuvable.")
+    # les seances gardent le nom, elles perdent seulement le lien
+    db.executer("UPDATE lives SET professeur_id = NULL WHERE professeur_id = ?",
+                (ident,))
+    db.supprimer("professeurs", ident)
+    journaliser("Professeur supprimé", actuel["nom"], "", par)
+    return {"supprime": True}
+
+
 # ==================================================================== lives
 # Le compte des etapes cochees arrive par une jointure et non par une requete
 # par seance : la liste du mois appelle cette requete une fois, pas trois cents.
@@ -168,9 +233,12 @@ SELECT_LIVE = """
 SELECT l.*, p.nom AS responsable_nom, p.couleur AS responsable_couleur,
        r.id AS rapport_id, r.reference AS rapport_reference, r.etat AS rapport_etat,
        COALESCE(t.faites, 0) AS taches_faites,
-       COALESCE(n.ecrits, 0) AS notes_total
+       COALESCE(n.ecrits, 0) AS notes_total,
+       COALESCE(pr.telephone, '') AS professeur_tel,
+       COALESCE(pr.matiere, '') AS professeur_matiere
 FROM lives l
 LEFT JOIN personnes p ON p.id = l.responsable_id
+LEFT JOIN professeurs pr ON pr.id = l.professeur_id
 LEFT JOIN rapports  r ON r.live_id = l.id
 LEFT JOIN (SELECT live_id, COUNT(*) AS faites FROM taches
            WHERE fait = 1 GROUP BY live_id) t ON t.live_id = l.id
@@ -247,13 +315,31 @@ def _valeurs_live(valeurs, base=None):
             fin = (debut + datetime.timedelta(minutes=90)).strftime("%H:%M")
     if heure and fin and fin <= heure:
         raise Refus("L'heure de fin doit être après l'heure de début.")
+    # Le professeur peut venir du repertoire (on garde le lien, donc le
+    # numero) ou etre tape a la main (on ne garde que le nom). Le nom reste
+    # la source d'affichage dans les deux cas.
+    prof_id = _entier(valeurs.get("professeur_id",
+                                  base.get("professeur_id")))
+    nom_prof = _texte(valeurs, "formateur", base.get("formateur", ""))
+    if prof_id:
+        fiche = db.un("SELECT nom FROM professeurs WHERE id = ?", (prof_id,))
+        if not fiche:
+            raise Refus("Professeur introuvable.")
+        nom_prof = fiche["nom"]
+    elif nom_prof:
+        # un nom deja connu du repertoire se rattache tout seul : c'est ce
+        # qui rend l'import utile, sans quoi les numeros resteraient perdus
+        connu = db.un("SELECT id FROM professeurs WHERE nom = ?", (nom_prof,))
+        prof_id = connu["id"] if connu else None
+
     return {
         "titre": _texte(valeurs, "titre", base.get("titre", ""),
                         obligatoire=True, etiquette="Nom du live / classe"),
         "date": _date_ou_base(valeurs, base),
         "heure": heure or base.get("heure", ""),
         "heure_fin": fin or base.get("heure_fin", ""),
-        "formateur": _texte(valeurs, "formateur", base.get("formateur", "")),
+        "formateur": nom_prof,
+        "professeur_id": prof_id,
         "plateforme": _texte(valeurs, "plateforme", base.get("plateforme", "")),
         "responsable_id": _entier(valeurs.get("responsable_id")),
         "statut": _choix(valeurs, "statut", schema.STATUTS_LIVE,

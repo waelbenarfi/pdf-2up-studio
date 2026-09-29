@@ -216,14 +216,14 @@ TAILLE_MAX_MO = 50
 # d'abord, pour ne pas heurter les cles etrangeres).
 TABLES_DONNEES = ["messages", "fichiers", "tickets", "notes", "taches",
                   "comptes", "distinctions", "rapports", "lives", "personnes",
-                  "journal"]
+                  "professeurs", "journal"]
 
 # Tables dont la cle primaire est un entier auto-incremente. `parametres` est
 # la seule a en etre depourvue : sa cle est un texte. La distinction sert a
 # savoir ou ajouter un RETURNING id sous PostgreSQL.
 TABLES_ID = ["personnes", "lives", "rapports", "fichiers", "tickets",
              "messages", "journal", "taches", "notes", "comptes",
-             "distinctions"]
+             "distinctions", "professeurs"]
 
 
 DDL = """
@@ -395,10 +395,23 @@ CREATE TABLE IF NOT EXISTS distinctions (
   decide_par  TEXT    NOT NULL DEFAULT ''
 );
 CREATE UNIQUE INDEX IF NOT EXISTS i_distinctions_mois ON distinctions(mois);
+
+-- Le repertoire des professeurs. La premiere etape de chaque seance est de
+-- les appeler : le numero doit etre dans l'application, pas dans un carnet.
+CREATE TABLE IF NOT EXISTS professeurs (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  nom       TEXT    NOT NULL,
+  telephone TEXT    NOT NULL DEFAULT '',
+  matiere   TEXT    NOT NULL DEFAULT '',
+  note      TEXT    NOT NULL DEFAULT '',
+  actif     INTEGER NOT NULL DEFAULT 1,
+  cree_le   TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS i_professeurs_nom ON professeurs(nom);
 """
 
 # Consultees au demarrage pour savoir s'il reste quelque chose a creer.
-TABLES_AJOUTEES = ["taches", "notes", "comptes", "distinctions"]
+TABLES_AJOUTEES = ["taches", "notes", "comptes", "distinctions", "professeurs"]
 
 # Colonnes ajoutees apres coup. Une table se cree d'un bloc avec un simple
 # IF NOT EXISTS ; une colonne demande de regarder d'abord ce qui est en
@@ -411,6 +424,9 @@ TABLES_AJOUTEES = ["taches", "notes", "comptes", "distinctions"]
 COLONNES_AJOUTEES = [
     ("taches", "fait_par_id", "INTEGER"),
     ("notes", "auteur_id", "INTEGER"),
+    # `formateur` reste le nom affiche ; `professeur_id` est le lien vers la
+    # fiche, donc vers le numero de telephone.
+    ("lives", "professeur_id", "INTEGER"),
 ]
 
 # Rattachement des lignes deja ecrites : le nom est ce qu'on a.
@@ -421,6 +437,9 @@ RECOLLAGES = [
     ("UPDATE notes SET auteur_id ="
      " (SELECT p.id FROM personnes p WHERE p.nom = notes.auteur)"
      " WHERE auteur_id IS NULL AND auteur != ''"),
+    ("UPDATE lives SET professeur_id ="
+     " (SELECT pr.id FROM professeurs pr WHERE pr.nom = lives.formateur)"
+     " WHERE professeur_id IS NULL AND formateur != ''"),
 ]
 
 # Un commentaire est libre mais pas sans fin : au-dela, c'est un rapport.

@@ -2,7 +2,7 @@
 
 import {
   api, etat, h, $, remplir, route, aller, demarrerNavigation, dessiner,
-  chargerPersonnes, deconnecter, initiales, aujourdhui,
+  chargerPersonnes, chargerProfesseurs, deconnecter, initiales, aujourdhui,
   routeCourante, moiMeme
 } from './noyau.js'
 import { ico } from './icones.js'
@@ -14,6 +14,7 @@ import { vuePerformance } from './vues/performance.js'
 import { vueArchive } from './vues/archive.js'
 import { vueSupport } from './vues/support.js'
 import { vueEquipe } from './vues/equipe.js'
+import { vueProfesseurs } from './vues/professeurs.js'
 
 const ECRANS = [
   { cle: 'tableau', ico: 'tableau', nom: 'Tableau de bord', vue: vueTableau,
@@ -32,7 +33,10 @@ const ECRANS = [
   { cle: 'support', ico: 'bouee', nom: 'Support technique', vue: vueSupport, compteur: 'tickets',
     titre: 'Service technique', sous: 'Tickets, échanges et pièces jointes' },
   { cle: 'equipe', ico: 'equipe', nom: 'Équipe', vue: vueEquipe,
-    titre: 'Équipe', sous: 'Qui suit les lives et écrit les rapports' }
+    titre: 'Équipe', sous: 'Qui suit les lives et écrit les rapports' },
+  { cle: 'professeurs', ico: 'telephone', nom: 'Professeurs',
+    vue: vueProfesseurs, titre: 'Répertoire des professeurs',
+    sous: 'Leur numéro, là où il faut appeler' }
 ]
 
 /* ----------------------------------------------------------- barre nav */
@@ -48,7 +52,7 @@ function dessinerNav () {
     h('div', { class: 's-nav-titre' }, 'Qualité'),
     ...groupe('rapports', 'performance', 'archive', 'support'),
     h('div', { class: 's-nav-titre' }, 'Organisation'),
-    ...groupe('equipe'))
+    ...groupe('equipe', 'professeurs'))
 
   function lien (ecran) {
     const compte = ecran.compteur ? etat.compteurs[ecran.compteur] : 0
@@ -184,6 +188,7 @@ async function demarrer () {
 
   try {
     await chargerPersonnes()
+    await chargerProfesseurs()
   } catch (erreur) {
     remplir($('#vue'), h('div', { class: 's-vide' },
       h('span', { class: 'ico' }, ico('interdit', 30)),

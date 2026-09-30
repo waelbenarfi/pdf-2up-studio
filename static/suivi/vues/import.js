@@ -6,7 +6,7 @@
 // ce soit plutôt qu'après.
 
 import {
-  CONST, api, etat, h, remplir, essayer, rafraichir, dateLongue
+  CONST, api, etat, h, remplir, essayer, rafraichir, dateLongue, aller
 } from '../noyau.js'
 import {
   modale, info, badge, tableau, vide, pastille, barreProgres
@@ -294,10 +294,24 @@ function resume (fait) {
         ? info('Les séances sont réparties à tour de rôle, dans l’ordre des '
           + 'dates. Vous pouvez encore les déplacer d’une colonne à l’autre '
           + 'depuis la Planification.')
+        : null,
+      // La planification montre une journée à la fois et s'ouvre sur
+      // aujourd'hui : après un import qui commence plus tard, elle paraît
+      // vide. On dit donc où sont les séances, et on y emmène.
+      fait.premiere
+        ? info(`Elles vont du ${dateLongue(fait.premiere)} au `
+          + `${dateLongue(fait.derniere)} — la Planification s’ouvre sur `
+          + 'aujourd’hui, pensez à changer de date.')
         : null),
     actions: (fermer) => [
       h('div', { class: 'droite' },
-        h('button', { class: 'b primaire', onclick: fermer }, 'Fermer'))
+        h('button', { class: 'b', onclick: fermer }, 'Fermer'),
+        fait.premiere
+          ? h('button', {
+            class: 'b primaire',
+            onclick: () => { fermer(); aller('planning', { date: fait.premiere }) }
+          }, ico('agenda', 15), 'Voir le premier jour')
+          : null)
     ]
   })
 }

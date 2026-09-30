@@ -395,6 +395,20 @@ def live(ident):
     return _enrichir_live(trouve) if trouve else None
 
 
+def journees_voisines(date):
+    """La journee planifiee juste avant et juste apres `date`.
+
+    La planification montre une journee a la fois. Vide, elle ne dit pas
+    s'il n'y a rien ce jour-la ou rien du tout : apres un import qui
+    commence plus tard, on croit que rien n'a ete importe. Deux MIN/MAX
+    valent mieux que de charger tout le planning pour le savoir.
+    """
+    apres = db.un("SELECT MIN(date) AS jour FROM lives WHERE date > ?", (date,))
+    avant = db.un("SELECT MAX(date) AS jour FROM lives WHERE date < ?", (date,))
+    return {"suivante": (apres or {}).get("jour") or "",
+            "precedente": (avant or {}).get("jour") or ""}
+
+
 def _valeurs_live(valeurs, base=None):
     base = base or {}
     heure = _heure(valeurs, "heure", obligatoire=not base)
@@ -530,8 +544,17 @@ def importer_lives(lignes, responsables=(), par=""):
     journaliser("Import de séances", "%d séance(s)" % len(crees),
                 "%d ignorée(s) · %d responsable(s)" % (len(ignorees), len(equipe)),
                 par)
+    # La date de la première séance créée : l'écran de planification montre
+    # une journée à la fois et s'ouvre sur aujourd'hui. Après un import qui
+    # commence la semaine prochaine, il paraîtrait vide — c'est le meilleur
+    # moyen de croire que rien n'a été importé.
+    dates = sorted({c["date"] for c in preparees
+                    if "%s %s · %s" % (c["date"], c["heure"], c["titre"])
+                    not in ignorees})
     return {"crees": len(crees), "ignorees": ignorees,
-            "responsables": len(equipe)}
+            "responsables": len(equipe),
+            "premiere": dates[0] if dates and crees else "",
+            "derniere": dates[-1] if dates and crees else ""}
 
 
 def repartir(date, par=""):

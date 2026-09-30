@@ -340,6 +340,12 @@ def lives():
         recherche=_arg("q", "")))
 
 
+@suivi_bp.route("/api/suivi/lives/voisines", methods=["GET"])
+def voisines():
+    """Les journees planifiees de part et d'autre d'une date vide."""
+    return ok(service.journees_voisines(_arg("date") or db.aujourdhui()))
+
+
 @suivi_bp.route("/api/suivi/lives/importer", methods=["POST"])
 @auth.exiger_admin
 def importer():

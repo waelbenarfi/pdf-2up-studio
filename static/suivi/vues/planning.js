@@ -18,6 +18,17 @@ import { ico } from '../icones.js'
 export async function vuePlanning (params) {
   const date = params.date || aujourdhui()
   const lives = await api.get('/lives', { date })
+  // Cet écran montre une journée à la fois. Vide, il ne dit pas s'il n'y a
+  // rien ce jour-là ou rien du tout — après un import qui commence plus
+  // tard, on croit que rien n'a été importé. On pointe donc vers la
+  // prochaine journée qui a des séances.
+  let prochaine = ''
+  let sens = 'suivante'
+  if (!lives.length) {
+    const voisines = await api.get('/lives/voisines', { date })
+    prochaine = voisines.suivante || voisines.precedente || ''
+    sens = voisines.suivante ? 'suivante' : 'precedente'
+  }
   // rôle unique : chaque technicien actif peut recevoir des séances
   const equipe = etat.personnes.filter(p => p.actif)
 
@@ -78,9 +89,22 @@ export async function vuePlanning (params) {
     : vide({
       dessin: 'agenda',
       titre: 'Aucun live ce jour-là',
-      texte: 'Ajoutez les séances prévues, puis répartissez-les entre les responsables.',
-      action: h('button', { class: 'b primaire', onclick: () => ouvrirLive({ date }) },
-        ico('plus', 15), 'Planifier un live')
+      texte: prochaine
+        ? (sens === 'suivante'
+            ? `La prochaine journée planifiée est le ${dateLongue(prochaine)}.`
+            : `La dernière journée planifiée est le ${dateLongue(prochaine)}.`)
+        : 'Ajoutez les séances prévues, puis répartissez-les entre les responsables.',
+      action: prochaine
+        ? h('div', { class: 'b-groupe' },
+          h('button', {
+            class: 'b primaire',
+            onclick: () => aller('planning', { date: prochaine })
+          }, ico(sens === 'suivante' ? 'droite' : 'gauche', 15),
+          'Y aller'),
+          h('button', { class: 'b', onclick: () => ouvrirLive({ date }) },
+            ico('plus', 15), 'Planifier un live'))
+        : h('button', { class: 'b primaire', onclick: () => ouvrirLive({ date }) },
+          ico('plus', 15), 'Planifier un live')
     }),
   equipe.length
     ? null

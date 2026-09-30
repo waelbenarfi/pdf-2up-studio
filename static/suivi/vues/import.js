@@ -26,17 +26,24 @@ const COLONNES = [
 ]
 
 const SEPARATEURS = ['\t', ';', '|', ',']
+// Dernier recours : un tableau dont les tabulations sont devenues des
+// espaces d'alignement. Cela arrive quand on copie depuis un aperçu plutôt
+// que depuis le fichier — le contenu est bon, la mise en forme seule a
+// changé, autant le lire que de le refuser.
+const ALIGNEMENT = /\s{2,}/
 
-/** Le séparateur qui découpe le plus régulièrement les lignes. */
+/** Le séparateur qui découpe le plus régulièrement les lignes, ou rien. */
 function separateurDe (lignes) {
-  let meilleur = '\t'; let score = 0
+  let meilleur = null; let score = 0
   for (const sep of SEPARATEURS) {
     const compte = lignes.map(l => l.split(sep).length)
     const mini = Math.min(...compte)
     // régulier ET découpant vraiment : deux colonnes au minimum
     if (mini >= 2 && mini > score) { score = mini; meilleur = sep }
   }
-  return meilleur
+  if (meilleur) return meilleur
+  const mini = Math.min(...lignes.map(l => l.split(ALIGNEMENT).length))
+  return mini >= 2 ? ALIGNEMENT : null
 }
 
 const sansAccent = (texte) => String(texte || '')
@@ -87,6 +94,41 @@ export function lireHeure (brut) {
 
 const pad2 = (n) => String(n).padStart(2, '0')
 
+/** Une cellule qui commence par une heure — « 19:30 », « 19h » — et rien d'autre. */
+const ressembleHeure = (cellule) =>
+  /^\d{1,2}\s*[:hH.]\s*\d{0,2}\s*(am|pm)?$/i.test(String(cellule || '').trim()) &&
+  Boolean(lireHeure(cellule))
+
+/**
+ * Sans ligne d'en-tête, deviner les colonnes d'après la forme de la
+ * première ligne : la date se reconnaît, les heures aussi, et ce qui reste
+ * suit l'ordre habituel — intitulé, professeur, plateforme.
+ *
+ * Le rang fixe d'avant supposait « date, heure, titre » ; un export qui
+ * porte une heure de fin décalait tout et l'intitulé devenait « 21:30 ».
+ */
+function deduireColonnes (cellules) {
+  const colonnes = {}
+  const heures = []
+  cellules.forEach((cellule, index) => {
+    if (colonnes.date === undefined && lireDate(cellule)) {
+      colonnes.date = index
+    } else if (ressembleHeure(cellule)) {
+      heures.push(index)
+    }
+  })
+  if (heures.length) colonnes.heure = heures[0]
+  if (heures.length > 1) colonnes.heure_fin = heures[1]
+  const reste = cellules
+    .map((_, index) => index)
+    .filter(index => !Object.values(colonnes).includes(index))
+  const [titre, formateur, plateforme] = reste
+  if (titre !== undefined) colonnes.titre = titre
+  if (formateur !== undefined) colonnes.formateur = formateur
+  if (plateforme !== undefined) colonnes.plateforme = plateforme
+  return colonnes
+}
+
 /**
  * Lit un tableau collé. Renvoie les séances comprises et les lignes
  * écartées, avec leur raison — une ligne perdue en silence serait pire
@@ -98,16 +140,28 @@ export function lireTableau (texte) {
   if (!lignes.length) return { seances: [], ecartees: [], colonnes: {} }
 
   const sep = separateurDe(lignes)
+  if (!sep) {
+    return {
+      seances: [],
+      ecartees: lignes.map(brut => ({ brut, raison: 'colonnes introuvables' })),
+      colonnes: {},
+      sansSeparateur: true
+    }
+  }
   const cases = lignes.map(l => l.split(sep).map(c => c.trim()))
 
-  let colonnes = reconnaitreEntetes(cases[0])
-  let debut = 0
+  // Une ligne d'en-tête ne porte pas de date. Si la première en a une,
+  // c'est une séance : les mots reconnus étaient ceux de son intitulé
+  // (« Séance », « Maths »…), et la prendre pour un en-tête faisait perdre
+  // la première ligne puis toutes les autres, faute de colonne date.
+  const premiereEstUneSeance = cases[0].some(c => lireDate(c))
+  let colonnes = premiereEstUneSeance ? {} : reconnaitreEntetes(cases[0])
   const aEntete = colonnes.date !== undefined || colonnes.titre !== undefined
+  let debut = 0
   if (aEntete) {
     debut = 1
   } else {
-    // sans en-tête : l'ordre le plus courant d'un export de planning
-    colonnes = { date: 0, heure: 1, titre: 2, formateur: 3, plateforme: 4 }
+    colonnes = deduireColonnes(cases[0])
   }
 
   const seances = []; const ecartees = []
@@ -180,10 +234,17 @@ export function ouvrirImport () {
     const n = lu.seances.length
     const gens = equipe.filter(p => choisis.has(p.id))
     if (!n) {
+      // Dire pourquoi, et quoi faire : « écartées » tout seul laissait
+      // relire un fichier qui, lui, était bon.
+      const raisons = [...new Set(lu.ecartees.map(e => e.raison))]
       remplir(apercu, lu.ecartees.length
-        ? info(`Aucune séance comprise. ${lu.ecartees.length} ligne(s) `
-          + 'écartée(s) : vérifiez que les colonnes date, heure et titre sont '
-          + 'présentes.')
+        ? info(lu.sansSeparateur
+          ? 'Les colonnes n’ont pas été trouvées : le texte collé ne contient '
+            + 'ni tabulation ni point-virgule. Ouvrez le fichier avec le '
+            + 'Bloc-notes, faites Ctrl+A puis Ctrl+C, et recollez ici.'
+          : `Aucune séance comprise sur ${lu.ecartees.length} ligne(s) — `
+            + `${raisons.join(', ')}. Collez le tableau entier, `
+            + 'ligne d’en-tête comprise.')
         : h('div'))
       return
     }

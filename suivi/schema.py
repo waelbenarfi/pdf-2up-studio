@@ -88,12 +88,16 @@ TACHES = [
     {"cle": "controle", "moment": "pendant", "symbole": "oeil",
      "libelle": "Contrôler le live",
      "aide": "Son, image et présence surveillés pendant toute la séance"},
-    {"cle": "rapport", "moment": "apres", "symbole": "document",
-     "libelle": "Rédiger le rapport après le live",
-     "aide": "Rapport envoyé une fois la séance terminée"},
     {"cle": "depot_apres", "moment": "apres", "symbole": "televerser",
      "libelle": "Déposer le fichier après le live",
      "aide": "Enregistrement ou support final mis en ligne"},
+    # Le rapport ferme la seance : il raconte ce qui s'est passe, depot
+    # compris. L'ecrire avant d'avoir depose le fichier obligeait a
+    # revenir dessus, et la case restante apres l'envoi du rapport donnait
+    # l'impression d'une seance jamais finie.
+    {"cle": "rapport", "moment": "apres", "symbole": "document",
+     "libelle": "Rédiger le rapport après le live",
+     "aide": "Rapport envoyé une fois la séance terminée"},
 ]
 
 CLES_TACHES = [item["cle"] for item in TACHES]

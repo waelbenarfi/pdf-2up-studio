@@ -207,12 +207,23 @@ def supprimer(table, ident):
 
 
 # ---------------------------------------------------------------- temps
+# Tout ce qui se date dans l'application passe par ici : l'heure de Tunis,
+# et non celle de la machine -- en ligne, le serveur tourne en UTC.
+_FUSEAU = datetime.timezone(datetime.timedelta(minutes=schema.FUSEAU_MINUTES))
+
+
+def horloge():
+    """L'instant present a Tunis, sans fuseau : le reste du code compare
+    des dates naives, et les colonnes stockent du texte."""
+    return datetime.datetime.now(_FUSEAU).replace(tzinfo=None, microsecond=0)
+
+
 def maintenant():
-    return datetime.datetime.now().replace(microsecond=0).isoformat(" ")
+    return horloge().isoformat(" ")
 
 
 def aujourdhui():
-    return datetime.date.today().isoformat()
+    return horloge().date().isoformat()
 
 
 # ---------------------------------------------------------------- demarrage

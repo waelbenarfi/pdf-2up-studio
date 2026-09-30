@@ -37,7 +37,7 @@ def configurer(racine):
     global RACINE
     RACINE = racine
     os.makedirs(racine, exist_ok=True)
-    squelette(datetime.date.today().year)
+    squelette(db.horloge().date().year)
 
 
 def squelette(annee):
@@ -59,7 +59,7 @@ def mois_de(date_iso):
     try:
         annee, mois = int(date_iso[:4]), int(date_iso[5:7])
     except (ValueError, TypeError):
-        aujourd = datetime.date.today()
+        aujourd = db.horloge().date()
         annee, mois = aujourd.year, aujourd.month
     return annee, schema.MOIS_ACCENT[max(0, min(11, mois - 1))]
 
@@ -213,7 +213,7 @@ def tout_vider():
         chemin = os.path.join(RACINE, nom)
         if os.path.isdir(chemin):
             shutil.rmtree(chemin, ignore_errors=True)
-    squelette(datetime.date.today().year)
+    squelette(db.horloge().date().year)
 
 
 def supprimer_dossier(relatif):
@@ -263,7 +263,7 @@ def arbre():
         bloc.setdefault(mois, []).append(rapport)
 
     if not annees:
-        annees[datetime.date.today().year] = {}
+        annees[db.horloge().date().year] = {}
 
     sortie = []
     for annee in sorted(annees, reverse=True):

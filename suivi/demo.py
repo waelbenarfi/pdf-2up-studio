@@ -8,7 +8,7 @@ Rien ici n'est indispensable : tout se cree et se supprime depuis l'interface.
 import datetime
 import random
 
-from . import schema
+from . import db, schema
 
 EQUIPE = [
     ("Ahmed Benali", "ahmed@exemple.com", "#6f7cff"),
@@ -105,7 +105,7 @@ def _dt(date, heure):
 def remplir(cnx, jours=14):
     """Ecrit un historique credible dans une base deja creee."""
     alea = random.Random(20260729)
-    maintenant = datetime.datetime.now().replace(microsecond=0)
+    maintenant = db.horloge()
     aujourdhui = maintenant.date()
     horodatage = maintenant.isoformat(" ")
 

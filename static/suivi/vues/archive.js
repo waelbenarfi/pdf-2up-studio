@@ -2,7 +2,7 @@
 // Les dossiers existent vraiment sur le disque : on peut les ouvrir, les
 // copier, ou laisser l'application Google Drive les synchroniser.
 
-import { api, h, dateCourte, poids, essayer } from '../noyau.js'
+import { api, h, dateCourte, poids, essayer, maintenantIci } from '../noyau.js'
 import { carte, vide, info, badgeEtat, badge, icoFichier, remplir } from '../ui.js'
 import { ouvrirFiche } from './rapports.js'
 
@@ -58,7 +58,7 @@ function anneeNoeud (annee) {
         const noeuds = annee.mois.map(mois => moisNoeud(mois))
         remplir(enfants, ...noeuds)
         // le mois courant est celui qu'on vient consulter neuf fois sur dix
-        const maintenant = new Date()
+        const maintenant = maintenantIci()
         const courant = maintenant.getMonth()
         if (annee.annee === maintenant.getFullYear() && annee.mois[courant].nombre) {
           noeuds[courant].firstChild.click()

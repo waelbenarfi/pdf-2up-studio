@@ -181,19 +181,35 @@ export const poids = (octets) => octets < 1024
 
 export const pad = (n) => String(n).padStart(2, '0')
 
-export function aujourdhui () {
+/**
+ * L'instant présent à l'heure de l'académie, quelle que soit l'horloge du
+ * poste. Le serveur date tout à Tunis ; si le navigateur, lui, suivait sa
+ * propre heure, « aujourd'hui » n'aurait pas le même sens des deux côtés —
+ * un poste mal réglé, ou consulté depuis l'étranger, ouvrirait la
+ * planification sur la veille.
+ *
+ * La date obtenue est décalée exprès : ses getFullYear/getHours locaux
+ * donnent alors l'heure de Tunis. Elle ne sert qu'à lire ces champs.
+ */
+export function maintenantIci () {
   const d = new Date()
+  const decalage = CONST.fuseauMinutes === undefined ? 60 : CONST.fuseauMinutes
+  return new Date(d.getTime() + (d.getTimezoneOffset() + decalage) * 60000)
+}
+
+export function aujourdhui () {
+  const d = maintenantIci()
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 export function decalerJour (iso, pas) {
-  const d = jourDe(iso) || new Date()
+  const d = jourDe(iso) || maintenantIci()
   d.setDate(d.getDate() + pas)
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 export function heureMaintenant () {
-  const d = new Date()
+  const d = maintenantIci()
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 

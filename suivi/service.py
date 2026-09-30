@@ -183,7 +183,7 @@ def fiabilite_professeurs(jours=90):
     Les séances sans rapport ne comptent pas : on ne peut rien reprocher à
     un professeur sur une séance que personne n'a racontée.
     """
-    depuis = (datetime.date.today()
+    depuis = (db.horloge().date()
               - datetime.timedelta(days=int(jours))).isoformat()
     lignes = db.tous(
         "SELECT pr.id, pr.nom, pr.telephone, pr.matiere,"
@@ -339,7 +339,7 @@ LEFT JOIN (SELECT live_id, COUNT(*) AS ecrits FROM notes
 
 def _enrichir_live(live):
     fin = _horodate(live["date"], live["heure_fin"] or live["heure"])
-    maintenant = datetime.datetime.now()
+    maintenant = db.horloge()
     passe = bool(fin and fin < maintenant)
     live["passe"] = passe
     live["aRapport"] = live.get("rapport_id") is not None
@@ -1180,7 +1180,7 @@ def tableau(pour=None):
     contente de filtrer.
     """
     aujourdhui = db.aujourdhui()
-    depuis = (datetime.date.today() - datetime.timedelta(days=29)).isoformat()
+    depuis = (db.horloge().date() - datetime.timedelta(days=29)).isoformat()
     qui = db.un("SELECT * FROM personnes WHERE id = ?", (pour,)) if pour else None
 
     lives_jour = lives(date=aujourdhui, responsable=pour or None)
@@ -1266,7 +1266,7 @@ def _taux_couverture(depuis, pour=None):
 
 
 def _series(jours=14, pour=None):
-    aujourdhui = datetime.date.today()
+    aujourdhui = db.horloge().date()
     filtre_l = " AND responsable_id = %d" % int(pour) if pour else ""
     filtre_r = filtre_l
     sortie = []
@@ -1335,7 +1335,7 @@ def soiree(pour=None, date=None):
                if s["statut"] != "annule"]
     seances.sort(key=lambda s: (s["heure"] or "99:99", s["titre"]))
 
-    maintenant = datetime.datetime.now()
+    maintenant = db.horloge()
     for seance in seances:
         etapes = taches_de(seance["id"])
         seance["taches"] = etapes
@@ -1383,7 +1383,7 @@ def performances(mois=None):
     """
     mois = mois or db.aujourdhui()[:7]
     debut, fin = _bornes_mois(mois)
-    maintenant = datetime.datetime.now()
+    maintenant = db.horloge()
 
     seances = db.tous(
         "SELECT * FROM lives WHERE date >= ? AND date <= ?"

@@ -10,7 +10,7 @@ import os
 
 import fitz
 
-from . import arabe, schema
+from . import arabe, db, schema
 
 MARGE = 48
 LARGEUR, HAUTEUR = fitz.paper_size("a4")
@@ -280,7 +280,7 @@ class Feuille(object):
     # ---------------------------------------------------------- final
     def pieds(self):
         total = self.doc.page_count
-        edite = datetime.datetime.now().strftime("%d/%m/%Y à %H:%M")
+        edite = db.horloge().strftime("%d/%m/%Y à %H:%M")
         for index, page in enumerate(self.doc):
             y = HAUTEUR - MARGE + 8
             page.draw_line(fitz.Point(MARGE, y - 12),

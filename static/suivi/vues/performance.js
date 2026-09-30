@@ -5,7 +5,7 @@
 // calcul — « 18/20 séances couvertes » plutôt que « 90 ».
 
 import {
-  CONST, api, etat, h, aller, momentDe, dateLongue
+  CONST, api, etat, h, aller, momentDe, dateLongue, maintenantIci
 } from '../noyau.js'
 import {
   carte, vide, info, badge, pastille, barreProgres, modale, confirmer,
@@ -18,7 +18,7 @@ const POIDS = CONST.poids || []
 const MOIS = CONST.mois || []
 
 const moisCourant = () => {
-  const d = new Date()
+  const d = maintenantIci()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
@@ -30,7 +30,7 @@ const moisLisible = (mois) => {
 /** Les douze derniers mois, pour le sélecteur. */
 function derniersMois () {
   const sortie = []
-  const d = new Date()
+  const d = maintenantIci()
   for (let i = 0; i < 12; i++) {
     const mois = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
     sortie.push({ valeur: mois, libelle: moisLisible(mois) })

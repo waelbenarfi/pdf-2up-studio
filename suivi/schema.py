@@ -122,6 +122,18 @@ PRIORITES = [
     {"cle": "urgente", "libelle": "Urgente", "ton": "danger"},
 ]
 
+# ------------------------------------------------------------------ heure
+# L'academie vit a l'heure de Tunis. Le serveur, lui, tourne en UTC chez
+# l'hebergeur : sans ce decalage, l'horloge de « Ce soir » retardait d'une
+# heure, et entre 23 h et minuit la journee affichee etait celle de la
+# veille -- un rapport ecrit apres le dernier live changeait de date.
+#
+# La Tunisie est a UTC+1 toute l'annee (plus de changement d'heure depuis
+# 2008), donc un decalage fixe suffit et ne depend d'aucune base de fuseaux.
+FUSEAU_MINUTES = 60
+FUSEAU_NOM = "Afrique/Tunis (UTC+1)"
+
+
 # ---------------------------------------------------------------- equipe
 # Tout le monde suit les lives ; ce qui distingue l'administrateur, c'est ce
 # qu'il peut faire en plus : gerer l'equipe, poser les mots de passe, effacer.
@@ -495,6 +507,8 @@ def constantes():
         "noteMax": NOTE_MAX,
         "roles": ROLES,
         "mdpMin": MDP_MIN,
+        "fuseauMinutes": FUSEAU_MINUTES,
+        "fuseauNom": FUSEAU_NOM,
         "poids": POIDS,
         "seuilEligible": SEUIL_ELIGIBLE,
         "seuilEtapes": SEUIL_ETAPES,

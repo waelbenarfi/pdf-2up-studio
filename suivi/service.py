@@ -416,7 +416,8 @@ def _valeurs_live(valeurs, base=None):
     if not fin and heure:
         debut = _horodate("2000-01-01", heure)
         if debut:
-            fin = (debut + datetime.timedelta(minutes=90)).strftime("%H:%M")
+            fin = (debut + datetime.timedelta(
+                minutes=schema.DUREE_SEANCE_MIN)).strftime("%H:%M")
     if heure and fin and fin <= heure:
         raise Refus("L'heure de fin doit être après l'heure de début.")
     # Le professeur peut venir du repertoire (on garde le lien, donc le
@@ -774,7 +775,8 @@ def _retard(live_lie, date_iso, heure, envoye_le):
                         or live_lie["heure"])
     if fin is None:
         debut = _horodate(date_iso, heure)
-        fin = debut + datetime.timedelta(minutes=90) if debut else None
+        fin = debut + datetime.timedelta(
+            minutes=schema.DUREE_SEANCE_MIN) if debut else None
     if fin is None:
         return 0
     try:

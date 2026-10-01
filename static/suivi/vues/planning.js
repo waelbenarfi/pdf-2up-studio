@@ -262,6 +262,14 @@ function deplacerJournee (date, lives) {
   return fermer
 }
 
+/** « 2 h », « 1 h 30 » — la durée que le serveur appliquera si on laisse vide. */
+function dureeDefaut () {
+  const minutes = CONST.dureeSeanceMin || 120
+  const heures = Math.floor(minutes / 60)
+  const reste = minutes % 60
+  return `${heures} h${reste ? ' ' + String(reste).padStart(2, '0') : ''}`
+}
+
 export function ouvrirLive ({ live = null, date = null, apres = null } = {}) {
   const modif = !!live
   const base = live || {
@@ -281,7 +289,9 @@ export function ouvrirLive ({ live = null, date = null, apres = null } = {}) {
       champTexte(refs, 'heure', 'Début', { type: 'time', valeur: (base.heure || '').slice(0, 5), obligatoire: true }),
       champTexte(refs, 'heure_fin', 'Fin', {
         type: 'time', valeur: (base.heure_fin || '').slice(0, 5),
-        aide: 'Vide = 1 h 30'
+        // le texte suit la constante du serveur : deux endroits qui
+        // annoncent une duree finiraient par ne plus dire la meme chose
+        aide: `Vide = ${dureeDefaut()}`
       })),
     h('div', { class: 's-lignes d2' },
       // choisi dans le répertoire : c'est ce qui donne accès à son numéro

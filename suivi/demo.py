@@ -137,7 +137,8 @@ def remplir(cnx, jours=14):
         creneaux = HEURES[:combien]
         for index, heure in enumerate(creneaux):
             titre, formateur, plateforme = COURS[index % len(COURS)]
-            fin = (_dt(jour, heure) + datetime.timedelta(minutes=90))
+            fin = (_dt(jour, heure)
+                   + datetime.timedelta(minutes=schema.DUREE_SEANCE_MIN))
             heure_fin = fin.strftime("%H:%M")
             responsable = techniciens[index % len(techniciens)]
             debut = _dt(jour, heure)

@@ -126,6 +126,14 @@ PRIORITES = [
     {"cle": "urgente", "libelle": "Urgente", "ton": "danger"},
 ]
 
+# Duree d'une seance quand l'heure de fin n'est pas donnee. Les lives de
+# l'academie durent deux heures ; c'est aussi la fin supposee pour mesurer
+# le retard d'un rapport qui n'est rattache a aucune seance -- les deux
+# doivent dire la meme chose, sinon un rapport parait en retard de trente
+# minutes sans que personne ait traine.
+DUREE_SEANCE_MIN = 120
+
+
 # ------------------------------------------------------------------ heure
 # L'academie vit a l'heure de Tunis. Le serveur, lui, tourne en UTC chez
 # l'hebergeur : sans ce decalage, l'horloge de « Ce soir » retardait d'une
@@ -511,6 +519,7 @@ def constantes():
         "noteMax": NOTE_MAX,
         "roles": ROLES,
         "mdpMin": MDP_MIN,
+        "dureeSeanceMin": DUREE_SEANCE_MIN,
         "fuseauMinutes": FUSEAU_MINUTES,
         "fuseauNom": FUSEAU_NOM,
         "poids": POIDS,

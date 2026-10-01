@@ -77,6 +77,13 @@ export async function vuePlanning (params) {
         disabled: !lives.length || !equipe.length
       }, ico('echange', 15), 'Répartir'),
       etat.admin
+        ? h('button', {
+          class: 'b',
+          onclick: () => deplacerJournee(date, lives),
+          disabled: !lives.length
+        }, ico('agenda', 15), 'Reporter le jour')
+        : null,
+      etat.admin
         ? h('button', { class: 'b', onclick: () => ouvrirImport() },
           ico('recevoir', 15), 'Importer')
         : null,
@@ -193,6 +200,66 @@ function repartir (date) {
       rafraichir()
     }
   })
+}
+
+/**
+ * Reporter toute une journee. Un report vise presque toujours la journee
+ * entiere -- un dimanche qui glisse d'une semaine, un jour ferie -- et le
+ * faire seance par seance laissait facilement un oubli derriere soi.
+ */
+function deplacerJournee (date, lives) {
+  const bougent = lives.filter(l => l.statut !== 'annule' && !l.aRapport)
+  const restent = lives.length - bougent.length
+  const refs = {}
+  // Le decalage d'une semaine est le cas courant : il est propose d'emblee,
+  // et le champ reste libre pour tout le reste.
+  const champ = champTexte(refs, 'vers', 'Nouvelle date', {
+    type: 'date', valeur: decalerJour(date, 7)
+  })
+
+  const raccourci = (pas, libelle) => h('button', {
+    class: 'b', type: 'button',
+    onclick: () => { refs.vers.value = decalerJour(date, pas) }
+  }, libelle)
+
+  const { fermer } = modale({
+    titre: 'Reporter la journée',
+    largeur: 'etroite',
+    corps: h('div', { style: { display: 'flex', flexDirection: 'column', gap: '14px' } },
+      h('p', { style: { fontSize: '13.5px', lineHeight: '1.6', color: 'var(--muted)', margin: 0 } },
+        `${bougent.length} séance${bougent.length > 1 ? 's' : ''} du `
+        + `${dateLongue(date)} ${bougent.length > 1 ? 'seront reportées' : 'sera reportée'} `
+        + 'à la date choisie, avec leur responsable et leurs étapes déjà cochées.'),
+      champ,
+      h('div', { class: 'b-groupe' },
+        raccourci(7, 'Semaine suivante'),
+        raccourci(1, 'Lendemain'),
+        raccourci(-7, 'Semaine précédente')),
+      restent
+        ? info(`${restent} séance(s) de ce jour ne bougeront pas : annulées, `
+          + 'ou leur rapport est déjà envoyé.')
+        : null),
+    actions: (ferme) => [
+      h('div', { class: 'droite' },
+        h('button', { class: 'b', onclick: ferme }, 'Annuler'),
+        h('button', {
+          class: 'b primaire',
+          onclick: async () => {
+            const vers = refs.vers.value
+            if (!vers || vers === date) return
+            ferme()
+            const fait = await essayer(
+              () => api.post('/lives/deplacer', { date, vers }),
+              `${bougent.length} séance(s) reportée(s).`)
+            if (!fait) return
+            // on suit les séances : rester sur un jour qu'on vient de vider
+            // donnerait l'impression de les avoir perdues
+            aller('planning', { date: vers })
+          }
+        }, ico('agenda', 15), 'Reporter'))
+    ]
+  })
+  return fermer
 }
 
 export function ouvrirLive ({ live = null, date = null, apres = null } = {}) {

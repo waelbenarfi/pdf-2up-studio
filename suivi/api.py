@@ -361,6 +361,15 @@ def repartir():
     return ok(service.repartir(corps.get("date") or db.aujourdhui(), _qui()))
 
 
+@suivi_bp.route("/api/suivi/lives/deplacer", methods=["POST"])
+@auth.exiger_admin
+def deplacer():
+    """Reporte toute une journee sur une autre date."""
+    corps = _corps()
+    return ok(service.deplacer_journee(corps.get("date"), corps.get("vers"),
+                                       _qui()))
+
+
 @suivi_bp.route("/api/suivi/lives/<int:ident>/taches", methods=["GET", "PATCH"])
 def taches(ident):
     """Les etapes d'une seance : appel du prof, fichiers, live, rapport.

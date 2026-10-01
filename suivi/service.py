@@ -557,6 +557,47 @@ def importer_lives(lignes, responsables=(), par=""):
             "derniere": dates[-1] if dates and crees else ""}
 
 
+def deplacer_journee(date, vers, par=""):
+    """Reporte toutes les seances d'une journee sur une autre date.
+
+    Un report concerne presque toujours la journee entiere -- un dimanche
+    qui glisse d'une semaine, un jour ferie. Le faire seance par seance
+    etait long et laissait facilement un oubli derriere soi.
+
+    Ce qui a deja eu lieu ne bouge pas : une seance avec un rapport est
+    passee, la reporter reecrirait l'histoire. Les seances annulees non
+    plus. Les etapes deja cochees et le responsable suivent la seance.
+    """
+    depart = _jour(date, "date")
+    arrivee = _jour(vers, "vers")
+    if depart == arrivee:
+        raise Refus("La date d'arrivée est la même que celle de départ.")
+
+    jour = lives(date=depart)
+    bougent = [l for l in jour
+               if l["statut"] != "annule" and not l["aRapport"]]
+    gardees = len(jour) - len(bougent)
+    if not bougent:
+        raise Refus("Aucune séance à reporter ce jour-là."
+                    if not jour else
+                    "Les séances de ce jour sont annulées ou ont déjà leur "
+                    "rapport : elles restent à leur date.")
+
+    quand = db.maintenant()
+    for item in bougent:
+        db.modifier("lives", item["id"], {"date": arrivee, "maj_le": quand})
+    journaliser("Journée reportée", "%s → %s" % (depart, arrivee),
+                "%d séance(s)" % len(bougent), par)
+    return {"deplacees": len(bougent), "gardees": gardees,
+            "date": depart, "vers": arrivee,
+            "titres": [l["titre"] for l in bougent]}
+
+
+def _jour(valeur, champ):
+    """Une date du calendrier, lue avec les memes regles qu'un formulaire."""
+    return _date({champ: valeur}, champ)
+
+
 def repartir(date, par=""):
     """Distribue les lives d'une journee entre les techniciens actifs."""
     equipe = personnes(True)

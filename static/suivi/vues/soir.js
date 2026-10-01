@@ -19,6 +19,7 @@ import { ico } from '../icones.js'
 import { ouvrirTaches } from './taches.js'
 import { ouvrirRapportDe, ouvrirFormulaire } from './rapports.js'
 import { boutonAppel } from './professeurs.js'
+import { ouvrirJour } from './jour.js'
 
 let minuteur = null
 
@@ -56,6 +57,16 @@ export async function vueSoir (params) {
           : 'Rien au programme.',
         actions: [
           h('span', { class: 's-horloge' }, ico('horloge', 14), data.maintenant),
+          // le compte de la journee, et de quoi l'ouvrir : un chiffre sans
+          // son detail ne se discute pas avec la personne concernee
+          h('button', {
+            class: 'b petit',
+            title: 'Voir les étapes cochées aujourd’hui',
+            onclick: () => ouvrirJour({
+              pour: pour || null,
+              nom: pour ? (personneDe(Number(pour)) || {}).nom || '' : ''
+            })
+          }, ico('liste', 14), `${data.faitesJour || 0} étape(s) faite(s)`),
           etat.admin ? selecteur(pour) : null
         ].filter(Boolean)
       },

@@ -1277,7 +1277,64 @@ def tableau(pour=None):
     }
     if qui:
         sortie["indicateurs"].update(_activite(qui["id"], depuis))
+        sortie["indicateurs"].update(_activite_jour(qui["id"], aujourdhui))
     return sortie
+
+
+def _activite_jour(personne_id, jour):
+    """Ce que la personne a coché dans la journée, séance par séance.
+
+    Compté sur l'instant du clic (`fait_le`), et non sur la date de la
+    séance : une étape faite ce soir pour la séance d'hier -- un rapport
+    déposé après coup, un fichier mis en ligne le lendemain -- est du
+    travail d'aujourd'hui. Compter par date de séance l'aurait attribuée
+    à hier, c'est-à-dire à personne.
+    """
+    etapes = db.un(
+        "SELECT COUNT(*) AS n FROM taches"
+        " WHERE fait = 1 AND fait_par_id = ? AND fait_le LIKE ?",
+        (personne_id, jour + "%"))["n"]
+    mots = db.un(
+        "SELECT COUNT(*) AS n FROM notes"
+        " WHERE auteur_id = ? AND cree_le LIKE ?",
+        (personne_id, jour + "%"))["n"]
+    return {"etapesJour": etapes, "commentairesJour": mots}
+
+
+def detail_jour(jour=None, pour=None):
+    """Les étapes cochées dans la journée : quoi, sur quelle séance, quand.
+
+    Le compteur seul ne vaut pas grand-chose : savoir que quelqu'un a fait
+    onze étapes ne dit pas lesquelles. Le détail se lit, se verifie, et se
+    discute avec l'interesse.
+    """
+    jour = _jour(jour or db.aujourdhui(), "date")
+    conditions = ["t.fait = 1", "t.fait_le LIKE ?"]
+    params = [jour + "%"]
+    if pour:
+        conditions.append("t.fait_par_id = ?")
+        params.append(_entier(pour))
+
+    lignes = db.tous(
+        "SELECT t.cle, t.fait_le, t.fait_par, t.fait_par_id,"
+        " l.id AS live_id, l.titre, l.date AS seance_date, l.heure"
+        " FROM taches t JOIN lives l ON l.id = t.live_id"
+        " WHERE " + " AND ".join(conditions)
+        + " ORDER BY t.fait_le DESC", params)
+
+    libelles = {item["cle"]: item for item in schema.TACHES}
+    sortie = []
+    for ligne in lignes:
+        etape = libelles.get(ligne["cle"], {})
+        ligne["libelle"] = etape.get("libelle", ligne["cle"])
+        ligne["symbole"] = etape.get("symbole", "coche")
+        ligne["heure_faite"] = (ligne["fait_le"] or "")[11:16]
+        # une etape faite le jour meme de la seance, ou apres coup
+        ligne["apresCoup"] = bool(ligne["seance_date"]
+                                  and ligne["seance_date"] < jour)
+        sortie.append(ligne)
+    return {"date": jour, "pour": _entier(pour) if pour else None,
+            "etapes": sortie, "total": len(sortie)}
 
 
 def _activite(personne_id, depuis):
@@ -1357,6 +1414,7 @@ def _classement(depuis):
                     if attribues else 100,
         }
         ligne.update(_activite(personne["id"], depuis))
+        ligne.update(_activite_jour(personne["id"], db.aujourdhui()))
         sortie.append(ligne)
     sortie.sort(key=lambda item: (-item["taux"], -item["lives"]))
     return sortie
@@ -1393,7 +1451,17 @@ def soiree(pour=None, date=None):
             int((debut - maintenant).total_seconds() // 60) if debut else None)
         seance["enCours"] = bool(debut and fin and debut <= maintenant <= fin)
         seance["finie"] = bool(fin and maintenant > fin)
+    # ce qui a ete coche dans la journee : la question qu'on se pose le
+    # soir meme, et que le tableau de bord ne repondait que sur 30 jours
+    conditions, params = ["fait = 1", "fait_le LIKE ?"], [jour + "%"]
+    if pour:
+        conditions.append("fait_par_id = ?")
+        params.append(pour)
+    faites = db.un("SELECT COUNT(*) AS n FROM taches WHERE "
+                   + " AND ".join(conditions), params)["n"]
+
     return {"date": jour, "pour": pour, "seances": seances,
+            "faitesJour": faites,
             "maintenant": maintenant.strftime("%H:%M")}
 
 

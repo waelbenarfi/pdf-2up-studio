@@ -13,6 +13,7 @@ import {
 } from '../ui.js'
 import { ouvrirFormulaire, ouvrirFiche, ouvrirRapportDe } from './rapports.js'
 import { puceTaches } from './taches.js'
+import { ouvrirJour } from './jour.js'
 import { ico } from '../icones.js'
 
 export async function vueTableau (params) {
@@ -40,16 +41,21 @@ export async function vueTableau (params) {
       onclic: () => aller('rapports', { etat: 'petit' }) }),
     // sur une vue personnelle, le travail fait de ses mains remplace les
     // chiffres du support, qui ne disent rien de ce que la personne a fait
+    // ce que la personne a fait aujourd'hui : la question qu'on se pose le
+    // soir même. Le total des 30 jours reste dessous, pour la tendance.
     perso
-      ? kpi({ dessin: 'liste', nom: 'Étapes cochées', valeur: k.etapesFaites || 0,
-        ton: 'accent', sous: '30 derniers jours' })
+      ? kpi({ dessin: 'liste', nom: 'Étapes faites aujourd’hui',
+        valeur: k.etapesJour || 0, ton: 'accent',
+        sous: `${k.etapesFaites || 0} sur les 30 derniers jours · voir le détail`,
+        onclic: () => ouvrirJour({ pour: data.pour, nom: data.nom }) })
       : kpi({ dessin: 'croix_cercle', nom: 'Incidents critiques', valeur: k.critiques,
         ton: k.critiques ? 'danger' : 'ok',
         sous: 'problèmes importants ou urgence critique',
         onclic: () => aller('rapports', { etat: 'important' }) }),
     perso
       ? kpi({ dessin: 'bulle', nom: 'Commentaires écrits',
-        valeur: k.commentaires || 0, ton: 'info', sous: '30 derniers jours' })
+        valeur: k.commentaires || 0, ton: 'info',
+        sous: `${k.commentairesJour || 0} aujourd’hui · 30 derniers jours` })
       : kpi({ dessin: 'billet', nom: 'Tickets support ouverts', valeur: k.ticketsOuverts,
         ton: k.ticketsOuverts ? 'info' : 'ok', sous: 'nouveaux ou en cours',
         onclic: () => aller('support') }),
@@ -113,7 +119,14 @@ export async function vueTableau (params) {
     equipeEntiere
       ? carte({
         titre: 'Suivi par responsable',
-        sous: 'Séances couvertes, étapes cochées et commentaires · 30 derniers jours'
+        sous: 'Étapes faites aujourd’hui · séances couvertes et commentaires '
+          + 'sur 30 jours',
+        actions: [
+          h('button', {
+            class: 'b petit',
+            onclick: () => ouvrirJour({})
+          }, ico('liste', 14), 'La journée de l’équipe')
+        ]
       }, equipe(data.equipe))
       : null
   ]
@@ -264,7 +277,14 @@ function equipe (liste) {
           barreProgres(membre.lives ? membre.taux : 0,
             `var(--${membre.lives ? tonTaux(membre.taux) : 'muted'})`))),
       h('div', { class: 'droite' },
-        chiffre(ico('liste', 13), membre.etapesFaites || 0, 'étape(s) cochée(s)'),
+        // le chiffre du jour d'abord : c'est celui qu'on vient chercher le
+        // soir. Cliquable, parce qu'un total sans le détail ne se discute pas.
+        h('button', {
+          class: 'b petit', title: `Voir ce que ${membre.nom} a coché aujourd’hui`,
+          onclick: () => ouvrirJour({ pour: membre.id, nom: membre.nom })
+        }, ico('liste', 13), `${membre.etapesJour || 0} aujourd’hui`),
+        chiffre(ico('liste', 13), membre.etapesFaites || 0,
+          'étape(s) cochée(s) sur 30 jours'),
         chiffre(ico('bulle', 13), membre.commentaires || 0, 'commentaire(s)'),
         membre.manquants ? badge(`${membre.manquants} manquant(s)`, 'danger') : null,
         h('b', { style: { fontSize: '16px', minWidth: '46px', textAlign: 'right' } },

@@ -318,6 +318,21 @@ def soir():
         _arg("date")))
 
 
+@suivi_bp.route("/api/suivi/jour")
+def jour():
+    """Les etapes cochees dans la journee, et par qui.
+
+    Meme regle que « Ce soir » : un technicien ne voit que les siennes.
+    """
+    qui = auth.utilisateur()
+    if not auth.est_admin():
+        return ok(service.detail_jour(_arg("date"), qui["id"]))
+    demande = _arg("pour")
+    return ok(service.detail_jour(
+        _arg("date"),
+        None if demande in (None, "", "equipe") else demande))
+
+
 @suivi_bp.route("/api/suivi/professeurs/<int:ident>",
                 methods=["PATCH", "PUT", "DELETE"])
 def professeur(ident):

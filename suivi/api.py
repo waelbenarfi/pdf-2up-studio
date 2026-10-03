@@ -355,6 +355,20 @@ def lives():
         recherche=_arg("q", "")))
 
 
+@suivi_bp.route("/api/suivi/lives/reconcilier", methods=["POST"])
+@auth.exiger_admin
+def reconcilier():
+    """Aligne le planning sur un calendrier revu.
+
+    Sans `appliquer`, ne fait que decrire ce qui changerait : on montre le
+    plan avant de toucher a quoi que ce soit.
+    """
+    corps = _corps()
+    return ok(service.reconcilier_lives(
+        corps.get("lignes"), corps.get("responsables"), corps.get("du"),
+        bool(corps.get("appliquer")), _qui()))
+
+
 @suivi_bp.route("/api/suivi/lives/voisines", methods=["GET"])
 def voisines():
     """Les journees planifiees de part et d'autre d'une date vide."""

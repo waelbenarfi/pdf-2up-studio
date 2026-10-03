@@ -6,10 +6,11 @@
 // ce soit plutôt qu'après.
 
 import {
-  CONST, api, etat, h, remplir, essayer, rafraichir, dateLongue, aller
+  CONST, api, etat, h, remplir, essayer, rafraichir, dateLongue, aller,
+  aujourdhui
 } from '../noyau.js'
 import {
-  modale, info, badge, tableau, vide, pastille, barreProgres
+  modale, info, badge, tableau, vide, pastille, barreProgres, champTexte
 } from '../ui.js'
 import { ico } from '../icones.js'
 
@@ -299,18 +300,28 @@ export function ouvrirImport () {
         : null)
   }
 
+  // Mettre a jour ne touche a rien avant cette date : le passe ne se
+  // reecrit pas, et un calendrier revu ne porte que la suite.
+  const refs = {}
+  const depuis = champTexte(refs, 'du', 'Mettre à jour à partir du', {
+    type: 'date', valeur: aujourdhui(),
+    aide: 'Les séances antérieures ne sont jamais touchées'
+  })
+
   dessinerEquipe()
   dessinerApercu()
 
   modale({
-    titre: 'Importer des séances',
+    titre: 'Importer ou mettre à jour des séances',
     sous: 'Collez le tableau exporté de votre outil de planning.',
     largeur: 'large',
     corps: h('div', { style: { display: 'flex', flexDirection: 'column', gap: '14px' } },
       zone,
-      h('div', { class: 's-champ' },
-        h('label', {}, 'Répartir entre'),
-        listeEquipe),
+      h('div', { class: 's-lignes d2' },
+        h('div', { class: 's-champ' },
+          h('label', {}, 'Répartir entre'),
+          listeEquipe),
+        depuis),
       apercu),
     actions: (fermer) => [
       h('div', { class: 'droite' },
@@ -330,7 +341,111 @@ export function ouvrirImport () {
             resume(fait)
             rafraichir()
           }
-        }, ico('recevoir', 15), 'Importer'))
+        }, ico('recevoir', 15), 'Tout importer'),
+        h('button', {
+          class: 'b primaire',
+          title: 'Comparer au planning existant au lieu de tout ajouter',
+          onclick: async (e) => {
+            if (!lu.seances.length) return
+            e.target.disabled = true
+            const plan = await essayer(() => api.post('/lives/reconcilier', {
+              lignes: lu.seances.map(({ responsable, ...reste }) => reste),
+              responsables: [...choisis],
+              du: refs.du.value || undefined
+            }))
+            e.target.disabled = false
+            if (!plan) return
+            montrerPlan(plan, lu, [...choisis], refs.du.value, fermer)
+          }
+        }, ico('echange', 15), 'Mettre à jour'))
+    ]
+  })
+}
+
+/**
+ * Ce que la mise à jour ferait, avant de le faire. Un planning qu'on
+ * corrige porte déjà du travail : on montre d'abord, on écrit ensuite.
+ */
+export function montrerPlan (plan, lu, choisis, du, fermerImport) {
+  const rien = !plan.creees.length && !plan.deplacees.length &&
+    !plan.retirees.length
+  const liste = (titre, items, ton, rendu) => items.length
+    ? h('details', { class: 's-import-ecartees' },
+      h('summary', {}, `${items.length} ${titre}`),
+      ...items.slice(0, 25).map(rendu),
+      items.length > 25
+        ? h('p', {}, `… et ${items.length - 25} autre(s).`)
+        : null)
+    : null
+
+  modale({
+    titre: 'Mettre le planning à jour',
+    sous: `Du ${dateLongue(plan.du)} au ${dateLongue(plan.au)}`,
+    largeur: 'large',
+    corps: h('div', { style: { display: 'flex', flexDirection: 'column', gap: '12px' } },
+      h('div', { class: 's-import-resume' },
+        badge(`${plan.inchangees} inchangée(s)`, 'ok', ico('coche', 12)),
+        plan.creees.length
+          ? badge(`${plan.creees.length} à créer`, 'accent', ico('plus', 12))
+          : null,
+        plan.deplacees.length
+          ? badge(`${plan.deplacees.length} horaire(s) corrigé(s)`, 'info',
+            ico('horloge', 12))
+          : null,
+        plan.retirees.length
+          ? badge(`${plan.retirees.length} à retirer`, 'warn', ico('alerte', 12))
+          : null,
+        plan.conservees.length
+          ? badge(`${plan.conservees.length} conservée(s)`, 'danger',
+            ico('bouclier', 12))
+          : null),
+      rien
+        ? info('Le planning correspond déjà au calendrier collé : rien à faire.')
+        : info('Les séances inchangées ne sont pas touchées — leurs étapes '
+          + 'cochées et leurs commentaires restent en place. Rien avant le '
+          + `${dateLongue(plan.du)} n’est modifié.`),
+      plan.conservees.length
+        ? info('Ces séances ne sont plus au calendrier mais quelqu’un y a '
+          + 'déjà travaillé : elles sont gardées. À vous de les annuler ou '
+          + 'de les déplacer si besoin.')
+        : null,
+      liste('séance(s) à créer', plan.creees, 'accent', (s) =>
+        h('p', {}, h('b', {}, `${s.date} ${s.heure} · `), s.titre,
+          s.formateur ? ` — ${s.formateur}` : '')),
+      liste('horaire(s) corrigé(s)', plan.deplacees, 'info', (s) =>
+        h('p', {}, h('b', {}, `${s.date} · `), s.titre,
+          ` — ${s.heure} → ${s.vers}`)),
+      liste('séance(s) à retirer', plan.retirees, 'warn', (s) =>
+        h('p', {}, h('b', {}, `${s.date} ${s.heure} · `), s.titre,
+          s.formateur ? ` — ${s.formateur}` : '')),
+      liste('séance(s) conservée(s)', plan.conservees, 'danger', (s) =>
+        h('p', {}, h('b', {}, `${s.date} ${s.heure} · `), s.titre,
+          ` — ${s.raison}`))),
+    actions: (fermer) => [
+      h('div', { class: 'droite' },
+        h('button', { class: 'b', onclick: fermer }, 'Annuler'),
+        rien
+          ? null
+          : h('button', {
+            class: 'b primaire',
+            onclick: async (e) => {
+              e.target.disabled = true
+              const fait = await essayer(() => api.post('/lives/reconcilier', {
+                lignes: lu.seances.map(({ responsable, ...reste }) => reste),
+                responsables: choisis,
+                du: du || undefined,
+                appliquer: true
+              }), 'Planning mis à jour.')
+              e.target.disabled = false
+              if (!fait) return
+              fermer()
+              fermerImport()
+              rafraichir()
+              if (fait.creees.length) {
+                aller('planning', { date: fait.creees[0].date })
+              }
+            }
+          }, ico('coche', 15), 'Appliquer'))
     ]
   })
 }

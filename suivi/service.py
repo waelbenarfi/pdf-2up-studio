@@ -564,6 +564,173 @@ def importer_lives(lignes, responsables=(), par=""):
             "derniere": dates[-1] if dates and crees else ""}
 
 
+def _travail_fait(live_id):
+    """Ce qui a deja ete fait sur une seance, et qui interdit de l'effacer.
+
+    Une case cochee, un commentaire, un rapport : quelqu'un y a passe du
+    temps. Meme si le planning revu ne mentionne plus cette seance, la
+    supprimer effacerait ce travail sans que personne ne le sache.
+    """
+    etapes = db.un("SELECT COUNT(*) AS n FROM taches"
+                   " WHERE live_id = ? AND fait = 1", (live_id,))["n"]
+    mots = db.un("SELECT COUNT(*) AS n FROM notes WHERE live_id = ?",
+                 (live_id,))["n"]
+    rapport = db.un("SELECT id FROM rapports WHERE live_id = ?", (live_id,))
+    return {"etapes": etapes, "commentaires": mots,
+            "aRapport": bool(rapport),
+            "intacte": not etapes and not mots and not rapport}
+
+
+def _resume_live(live, raison=""):
+    sortie = {"id": live["id"], "date": live["date"], "heure": live["heure"],
+              "titre": live["titre"], "formateur": live.get("formateur", "")}
+    if raison:
+        sortie["raison"] = raison
+    return sortie
+
+
+def reconcilier_lives(lignes, responsables=(), du=None, appliquer=False,
+                      par=""):
+    """Aligne le planning sur un calendrier revu, sans rien perdre.
+
+    Reimporter un calendrier corrige doublait la planification : les
+    seances inchangees etaient bien ignorees, mais celles qui avaient
+    change d'heure ou disparu restaient a cote des nouvelles. On compare
+    donc, au lieu d'ajouter.
+
+    Dans l'ordre, pour chaque jour a partir de `du` :
+
+    * meme jour, meme heure, meme intitule : on ne touche a rien. C'est le
+      cas de l'immense majorite, et c'est la que vit le travail deja fait ;
+    * meme jour, meme intitule, heure differente : l'heure est corrigee sur
+      place -- la seance est la meme, les etapes cochees la suivent ;
+    * presente au calendrier et absente du planning : elle est creee ;
+    * presente au planning et absente du calendrier : elle est retiree si
+      personne n'y a touche, et **conservee** sinon. Une seance ou l'on a
+      deja appele le professeur ne disparait pas en silence : elle est
+      rendue dans `conservees`, a l'administrateur de trancher.
+
+    `appliquer=False` ne fait que decrire le plan : on montre ce qui va
+    changer avant de le faire.
+    """
+    if not isinstance(lignes, (list, tuple)) or not lignes:
+        raise Refus("Aucune séance dans le calendrier collé.")
+    if len(lignes) > 2000:
+        raise Refus("Calendrier trop volumineux (2000 séances au maximum).")
+
+    equipe = [_entier(i) for i in (responsables or []) if _entier(i)]
+    connus = {p["id"] for p in personnes(True)}
+    inconnus = [i for i in equipe if i not in connus]
+    if inconnus:
+        raise Refus("Responsable inconnu ou inactif : %s."
+                    % ", ".join(str(i) for i in inconnus))
+
+    preparees = []
+    for rang, brute in enumerate(lignes, 1):
+        try:
+            preparees.append(_valeurs_live(brute or {}))
+        except Refus as souci:
+            raise Refus("Ligne %d : %s" % (rang, souci))
+    preparees.sort(key=lambda c: (c["date"], c["heure"] or "99:99"))
+
+    debut = _jour(du, "du") if du else preparees[0]["date"]
+    fin = max(c["date"] for c in preparees)
+    voulues = [c for c in preparees if c["date"] >= debut]
+    if not voulues:
+        raise Refus("Le calendrier collé ne contient aucune séance à partir "
+                    "du %s." % debut)
+
+    # Le planning existant sur la meme fenetre. Hors de cette fenetre, rien
+    # n'est compare ni touche : le passe ne se reecrit pas.
+    existantes = [l for l in lives(du=debut, au=fin)]
+
+    # 1. correspondance exacte : jour, heure, intitule
+    reste_base = {}
+    inchangees = 0
+    exactes = {}
+    for live in existantes:
+        exactes.setdefault((live["date"], live["heure"], live["titre"]),
+                           []).append(live)
+    a_placer = []
+    for champs in voulues:
+        cle = (champs["date"], champs["heure"], champs["titre"])
+        if exactes.get(cle):
+            exactes[cle].pop(0)
+            inchangees += 1
+        else:
+            a_placer.append(champs)
+    for liste in exactes.values():
+        for live in liste:
+            reste_base[live["id"]] = live
+
+    # 2. meme jour et meme intitule, heure differente : on corrige l'heure
+    par_jour_titre = {}
+    for live in reste_base.values():
+        par_jour_titre.setdefault((live["date"], live["titre"]), []).append(live)
+    for liste in par_jour_titre.values():
+        liste.sort(key=lambda l: l["heure"] or "")
+
+    deplacees, a_creer = [], []
+    for champs in a_placer:
+        jumelles = par_jour_titre.get((champs["date"], champs["titre"]))
+        if jumelles:
+            live = jumelles.pop(0)
+            reste_base.pop(live["id"], None)
+            deplacees.append((live, champs))
+        else:
+            a_creer.append(champs)
+
+    # 3. ce qui reste au planning n'est plus au calendrier
+    a_retirer, conservees = [], []
+    for live in reste_base.values():
+        trace = _travail_fait(live["id"])
+        if trace["intacte"] and live["statut"] != "annule":
+            a_retirer.append(live)
+        else:
+            raison = ("rapport envoyé" if trace["aRapport"]
+                      else "annulée" if live["statut"] == "annule"
+                      else "%d étape(s) et %d commentaire(s)"
+                      % (trace["etapes"], trace["commentaires"]))
+            conservees.append(_resume_live(live, raison))
+
+    plan = {
+        "du": debut, "au": fin,
+        "inchangees": inchangees,
+        "deplacees": [dict(_resume_live(live), vers=champs["heure"])
+                      for live, champs in deplacees],
+        "creees": [{"date": c["date"], "heure": c["heure"],
+                    "titre": c["titre"], "formateur": c.get("formateur", "")}
+                   for c in a_creer],
+        "retirees": [_resume_live(live) for live in a_retirer],
+        "conservees": conservees,
+        "responsables": len(equipe),
+        "applique": bool(appliquer),
+    }
+    if not appliquer:
+        return plan
+
+    quand = db.maintenant()
+    for live, champs in deplacees:
+        db.modifier("lives", live["id"],
+                    {"heure": champs["heure"],
+                     "heure_fin": champs["heure_fin"], "maj_le": quand})
+    for live in a_retirer:
+        db.supprimer("lives", live["id"])
+    for index, champs in enumerate(a_creer):
+        if equipe:
+            champs["responsable_id"] = equipe[index % len(equipe)]
+        champs["cree_le"] = champs["maj_le"] = quand
+        db.inserer("lives", champs)
+
+    journaliser(
+        "Planning mis à jour", "%s → %s" % (debut, fin),
+        "%d inchangée(s) · %d créée(s) · %d horaire(s) corrigé(s) · "
+        "%d retirée(s) · %d conservée(s)"
+        % (inchangees, len(a_creer), len(deplacees), len(a_retirer),
+           len(conservees)), par)
+    return plan
+
+
 def deplacer_journee(date, vers, par=""):
     """Reporte toutes les seances d'une journee sur une autre date.
 

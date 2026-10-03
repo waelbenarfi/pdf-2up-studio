@@ -18,7 +18,18 @@ export const badgeUrgence = (cle) => {
   const u = urgenceDe(cle)
   return badge('Urgence : ' + u.libelle.toLowerCase(), u.ton)
 }
-export const badgeStatutLive = (cle) => {
+/**
+ * Le statut d'une séance. Passer le live entier plutôt que sa seule clé
+ * permet de dire la chose la plus utile du moment : une séance dont
+ * l'heure est arrivée mais que personne n'a ouverte n'est pas
+ * « planifiée », elle est en retard d'un clic.
+ */
+export const badgeStatutLive = (live) => {
+  const cle = typeof live === 'string' ? live : (live && live.statut)
+  const enDirect = typeof live === 'object' && live && live.enDirect
+  if (cle === 'planifie' && enDirect) {
+    return badge('À ouvrir', 'warn', ico('horloge', 11))
+  }
   const s = statutLiveDe(cle)
   return badge(s.libelle, s.ton)
 }

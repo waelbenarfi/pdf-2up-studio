@@ -106,6 +106,11 @@ CLES_TACHES = [item["cle"] for item in TACHES]
 # pour de bon : deux endroits ou dire la meme chose finiraient par diverger.
 TACHE_RAPPORT = "rapport"
 
+# L'etape qui fait basculer la seance « en cours » : la salle est ouverte,
+# le live tourne. Nommee ici pour que la regle de statut ne depende pas
+# d'une chaine recopiee au milieu du code.
+TACHE_OUVERTURE = "ouverture"
+
 # ---------------------------------------------------------------- support
 STATUTS_TICKET = [
     {"cle": "nouveau", "libelle": "Nouveau", "ton": "info"},
@@ -516,6 +521,7 @@ def constantes():
         "taches": TACHES,
         "moments": MOMENTS,
         "tacheRapport": TACHE_RAPPORT,
+        "tacheOuverture": TACHE_OUVERTURE,
         "noteMax": NOTE_MAX,
         "roles": ROLES,
         "mdpMin": MDP_MIN,

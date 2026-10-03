@@ -217,7 +217,7 @@ function journee (lives, perso = false, soi = false) {
 function etiquetteLive (live) {
   if (live.aRapport) return badge('rapport', 'ok', ico('coche', 12))
   if (live.sansRapport) return badge('rapport manquant', 'danger')
-  return badgeStatutLive(live.statut)
+  return badgeStatutLive(live)
 }
 
 function manquants (lives) {

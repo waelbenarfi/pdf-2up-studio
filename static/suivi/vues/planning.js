@@ -396,7 +396,7 @@ function sousTitreLive (live) {
 function etiquetteRapport (live) {
   if (live.aRapport) return badge('rapport', 'ok', ico('coche', 12))
   if (live.sansRapport) return badge('rapport manquant', 'danger')
-  return badgeStatutLive(live.statut)
+  return badgeStatutLive(live)
 }
 
 /** Dans la liste, le statut a déjà sa colonne : celle-ci ne parle que du rapport. */
@@ -452,7 +452,7 @@ export async function vueLives (params) {
       h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
         pastille(personneDe(live.responsable_id), 'mini'),
         h('span', {}, live.responsable_nom || 'à attribuer')),
-      badgeStatutLive(live.statut),
+      badgeStatutLive(live),
       colonneRapport(live),
       badgeTaches(live),
       actionsLigne(

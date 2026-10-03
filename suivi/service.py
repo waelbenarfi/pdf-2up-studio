@@ -338,10 +338,16 @@ LEFT JOIN (SELECT live_id, COUNT(*) AS ecrits FROM notes
 
 
 def _enrichir_live(live):
+    debut = _horodate(live["date"], live["heure"])
     fin = _horodate(live["date"], live["heure_fin"] or live["heure"])
     maintenant = db.horloge()
     passe = bool(fin and fin < maintenant)
     live["passe"] = passe
+    # l'heure dit si la seance devrait etre en train de se jouer. Elle ne
+    # change pas le statut -- personne n'ouvre une salle a la place du
+    # technicien -- mais l'ecart entre les deux est justement ce qu'il
+    # faut voir : l'heure est la, et le live n'est pas ouvert.
+    live["enDirect"] = bool(debut and fin and debut <= maintenant <= fin)
     live["aRapport"] = live.get("rapport_id") is not None
     live["sansRapport"] = bool(
         passe and not live["aRapport"] and live["statut"] != "annule")
@@ -681,6 +687,53 @@ def _verifier_etape(cle):
     return etape
 
 
+def _recaler_statut(live_id, par=""):
+    """Le statut suit ce qui a ete fait, au lieu d'etre pose a la main.
+
+    « Planifie » restait affiche toute la soiree : personne ne pense a
+    changer un menu deroulant pendant qu'il surveille trois lives. Le
+    statut se deduit donc des etapes, qui sont cochees, elles, parce
+    qu'elles correspondent a un geste reel.
+
+    La regle, dans l'ordre :
+      - le rapport est parti (ou tout est coche) : la seance est terminee ;
+      - « Ouvrir le live » est coche : elle est en cours ;
+      - sinon : elle reste planifiee.
+
+    « Annule » est la seule decision proprement humaine : rien ne la
+    defait automatiquement. Et decocher fait revenir en arriere -- un
+    statut qui ne sait qu'avancer finit par mentir apres une erreur de
+    clic.
+    """
+    seance = db.un("SELECT * FROM lives WHERE id = ?", (live_id,))
+    if not seance or seance["statut"] == "annule":
+        return None
+
+    faites = {ligne["cle"] for ligne in db.tous(
+        "SELECT cle FROM taches WHERE live_id = ? AND fait = 1", (live_id,))}
+    if schema.TACHE_RAPPORT in faites or faites >= set(schema.CLES_TACHES):
+        vise = "termine"
+    elif schema.TACHE_OUVERTURE in faites:
+        vise = "en_cours"
+    else:
+        vise = "planifie"
+
+    if vise == seance["statut"]:
+        return None
+    db.modifier("lives", live_id, {"statut": vise, "maj_le": db.maintenant()})
+    journaliser("Statut suivi automatiquement", seance["titre"],
+                "%s → %s" % (_libelle_statut(seance["statut"]),
+                             _libelle_statut(vise)), par)
+    return vise
+
+
+def _libelle_statut(cle):
+    for item in schema.STATUTS_LIVE:
+        if item["cle"] == cle:
+            return item["libelle"]
+    return cle
+
+
 def basculer_tache(live_id, cle, fait, par=""):
     return basculer_taches(live_id, [{"cle": cle, "fait": fait}], par)
 
@@ -716,6 +769,7 @@ def basculer_taches(live_id, changements, par=""):
                        for etape, fait in retenus)
     journaliser("%d étape(s) mise(s) à jour" % len(retenus),
                 seance["titre"], detail, par)
+    _recaler_statut(live_id, par)
     return {"live": live(live_id), "taches": taches_de(live_id)}
 
 
@@ -950,10 +1004,11 @@ def supprimer_rapport(ident, par=""):
                 (ident,))
     db.supprimer("rapports", ident)
     if actuel["live_id"]:
-        db.modifier("lives", actuel["live_id"],
-                    {"statut": "termine", "maj_le": db.maintenant()})
-        # le rapport n'existe plus : l'etape correspondante non plus
+        # le rapport n'existe plus : l'etape correspondante non plus, et la
+        # seance n'est donc plus terminee -- elle retombe en cours, ou
+        # planifiee si elle n'avait meme pas ete ouverte
         _poser_tache(actuel["live_id"], schema.TACHE_RAPPORT, False)
+        _recaler_statut(actuel["live_id"], par)
     journaliser("Rapport supprimé", actuel["reference"], actuel["nom_live"],
                 par)
     return {"supprime": True}

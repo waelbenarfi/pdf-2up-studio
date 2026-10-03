@@ -581,6 +581,40 @@ def _travail_fait(live_id):
             "intacte": not etapes and not mots and not rapport}
 
 
+def _fusionner_live(source_id, cible_id):
+    """Verse le travail d'une seance dans une autre, puis la vide.
+
+    Sert quand la meme seance existe deux fois -- typiquement apres un
+    « Tout importer » lance sur un calendrier ou elle a change d'heure.
+    Conserver les deux laisse un doublon ; supprimer la doublure effacerait
+    les cases cochees. On deplace donc le travail sur celle qui reste.
+
+    Une etape deja faite sur la cible n'est pas ecrasee : c'est la plus
+    avancee des deux qui gagne, jamais la plus recente.
+    """
+    deja = {ligne["cle"] for ligne in db.tous(
+        "SELECT cle FROM taches WHERE live_id = ? AND fait = 1", (cible_id,))}
+    reprises = 0
+    for ligne in db.tous("SELECT * FROM taches WHERE live_id = ? AND fait = 1",
+                         (source_id,)):
+        if ligne["cle"] in deja:
+            continue
+        existante = db.un("SELECT id FROM taches WHERE live_id = ? AND cle = ?",
+                          (cible_id, ligne["cle"]))
+        champs = {"fait": 1, "fait_le": ligne["fait_le"],
+                  "fait_par": ligne["fait_par"],
+                  "fait_par_id": ligne.get("fait_par_id")}
+        if existante:
+            db.modifier("taches", existante["id"], champs)
+        else:
+            champs.update({"live_id": cible_id, "cle": ligne["cle"]})
+            db.inserer("taches", champs)
+        reprises += 1
+    mots = db.executer("UPDATE notes SET live_id = ? WHERE live_id = ?",
+                       (cible_id, source_id)).rowcount
+    return {"etapes": reprises, "commentaires": mots}
+
+
 def _resume_live(live, raison=""):
     sortie = {"id": live["id"], "date": live["date"], "heure": live["heure"],
               "titre": live["titre"], "formateur": live.get("formateur", "")}
@@ -651,11 +685,16 @@ def reconcilier_lives(lignes, responsables=(), du=None, appliquer=False,
     for live in existantes:
         exactes.setdefault((live["date"], live["heure"], live["titre"]),
                            []).append(live)
+    # Qui survit, par (jour, intitule) : c'est la que devra atterrir le
+    # travail d'une eventuelle doublure du meme jour.
+    survivants = {}
     a_placer = []
     for champs in voulues:
         cle = (champs["date"], champs["heure"], champs["titre"])
         if exactes.get(cle):
-            exactes[cle].pop(0)
+            garde = exactes[cle].pop(0)
+            survivants.setdefault((champs["date"], champs["titre"]), []).append(
+                garde["id"])
             inchangees += 1
         else:
             a_placer.append(champs)
@@ -676,16 +715,27 @@ def reconcilier_lives(lignes, responsables=(), du=None, appliquer=False,
         if jumelles:
             live = jumelles.pop(0)
             reste_base.pop(live["id"], None)
+            survivants.setdefault((champs["date"], champs["titre"]), []).append(
+                live["id"])
             deplacees.append((live, champs))
         else:
             a_creer.append(champs)
 
-    # 3. ce qui reste au planning n'est plus au calendrier
-    a_retirer, conservees = [], []
+    # 3. ce qui reste au planning n'est plus au calendrier.
+    #
+    # Trois sorts possibles, et l'ordre compte : une seance qui a un double
+    # survivant le meme jour sous le meme intitule n'est pas une seance
+    # disparue, c'est la meme en deux exemplaires. Son travail rejoint
+    # l'autre, puis elle s'efface -- sinon on garde un doublon que personne
+    # n'ose supprimer, ce qui est exactement ce qu'on cherchait a eviter.
+    a_retirer, conservees, a_fusionner = [], [], []
     for live in reste_base.values():
         trace = _travail_fait(live["id"])
+        jumeaux = survivants.get((live["date"], live["titre"]))
         if trace["intacte"] and live["statut"] != "annule":
             a_retirer.append(live)
+        elif jumeaux and not trace["aRapport"] and live["statut"] != "annule":
+            a_fusionner.append((live, jumeaux[0]))
         else:
             raison = ("rapport envoyé" if trace["aRapport"]
                       else "annulée" if live["statut"] == "annule"
@@ -702,6 +752,9 @@ def reconcilier_lives(lignes, responsables=(), du=None, appliquer=False,
                     "titre": c["titre"], "formateur": c.get("formateur", "")}
                    for c in a_creer],
         "retirees": [_resume_live(live) for live in a_retirer],
+        "fusionnees": [_resume_live(live, "doublon : son travail rejoint "
+                                    "la séance qui reste")
+                       for live, _ in a_fusionner],
         "conservees": conservees,
         "responsables": len(equipe),
         "applique": bool(appliquer),
@@ -714,20 +767,32 @@ def reconcilier_lives(lignes, responsables=(), du=None, appliquer=False,
         db.modifier("lives", live["id"],
                     {"heure": champs["heure"],
                      "heure_fin": champs["heure_fin"], "maj_le": quand})
-    for live in a_retirer:
-        db.supprimer("lives", live["id"])
+
+    # Les creations d'abord : une doublure peut avoir pour survivante une
+    # seance que l'on vient seulement d'ecrire.
     for index, champs in enumerate(a_creer):
         if equipe:
             champs["responsable_id"] = equipe[index % len(equipe)]
         champs["cree_le"] = champs["maj_le"] = quand
-        db.inserer("lives", champs)
+        neuf = db.inserer("lives", champs)
+        survivants.setdefault((champs["date"], champs["titre"]), []).append(neuf)
+
+    for live, _ in a_fusionner:
+        cible = survivants.get((live["date"], live["titre"]))
+        if not cible:
+            continue
+        _fusionner_live(live["id"], cible[0])
+        db.supprimer("lives", live["id"])
+        _recaler_statut(cible[0], par)
+    for live in a_retirer:
+        db.supprimer("lives", live["id"])
 
     journaliser(
         "Planning mis à jour", "%s → %s" % (debut, fin),
         "%d inchangée(s) · %d créée(s) · %d horaire(s) corrigé(s) · "
-        "%d retirée(s) · %d conservée(s)"
-        % (inchangees, len(a_creer), len(deplacees), len(a_retirer),
-           len(conservees)), par)
+        "%d fusionnée(s) · %d retirée(s) · %d conservée(s)"
+        % (inchangees, len(a_creer), len(deplacees), len(a_fusionner),
+           len(a_retirer), len(conservees)), par)
     return plan
 
 

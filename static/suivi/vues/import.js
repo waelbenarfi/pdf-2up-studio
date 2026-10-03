@@ -367,8 +367,9 @@ export function ouvrirImport () {
  * corrige porte déjà du travail : on montre d'abord, on écrit ensuite.
  */
 export function montrerPlan (plan, lu, choisis, du, fermerImport) {
+  const fusionnees = plan.fusionnees || []
   const rien = !plan.creees.length && !plan.deplacees.length &&
-    !plan.retirees.length
+    !plan.retirees.length && !fusionnees.length
   const liste = (titre, items, ton, rendu) => items.length
     ? h('details', { class: 's-import-ecartees' },
       h('summary', {}, `${items.length} ${titre}`),
@@ -391,6 +392,10 @@ export function montrerPlan (plan, lu, choisis, du, fermerImport) {
         plan.deplacees.length
           ? badge(`${plan.deplacees.length} horaire(s) corrigé(s)`, 'info',
             ico('horloge', 12))
+          : null,
+        fusionnees.length
+          ? badge(`${fusionnees.length} doublon(s) fusionné(s)`, 'info',
+            ico('echange', 12))
           : null,
         plan.retirees.length
           ? badge(`${plan.retirees.length} à retirer`, 'warn', ico('alerte', 12))
@@ -415,6 +420,13 @@ export function montrerPlan (plan, lu, choisis, du, fermerImport) {
       liste('horaire(s) corrigé(s)', plan.deplacees, 'info', (s) =>
         h('p', {}, h('b', {}, `${s.date} · `), s.titre,
           ` — ${s.heure} → ${s.vers}`)),
+      fusionnees.length
+        ? info('Des séances existent en double — le même intitulé le même '
+          + 'jour. Leurs étapes cochées et leurs commentaires rejoignent '
+          + 'celle qui reste, puis la doublure disparaît : rien n’est perdu.')
+        : null,
+      liste('doublon(s) fusionné(s)', fusionnees, 'info', (s) =>
+        h('p', {}, h('b', {}, `${s.date} ${s.heure} · `), s.titre)),
       liste('séance(s) à retirer', plan.retirees, 'warn', (s) =>
         h('p', {}, h('b', {}, `${s.date} ${s.heure} · `), s.titre,
           s.formateur ? ` — ${s.formateur}` : '')),

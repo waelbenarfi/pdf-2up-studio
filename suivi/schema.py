@@ -432,6 +432,7 @@ CREATE TABLE IF NOT EXISTS professeurs (
   nom       TEXT    NOT NULL,
   telephone TEXT    NOT NULL DEFAULT '',
   matiere   TEXT    NOT NULL DEFAULT '',
+  tarif     TEXT    NOT NULL DEFAULT '',
   note      TEXT    NOT NULL DEFAULT '',
   actif     INTEGER NOT NULL DEFAULT 1,
   cree_le   TEXT    NOT NULL
@@ -460,6 +461,12 @@ COLONNES_AJOUTEES = [
     # texte libre : impossible a compter. C'est pourtant ce qu'on veut savoir
     # d'un professeur au bout de trois mois.
     ("rapports", "absent_prof", "INTEGER"),
+    # Ce que coute une seance avec ce professeur. Du texte, et non un
+    # nombre : les tarifs reels ne sont pas tous des montants -- « 50dt par
+    # seance », mais aussi « 25% » ou « 50dt pour 3eme / 40dt pour 2eme ».
+    # Les ranger de force dans un entier aurait oblige a en perdre une
+    # partie, c'est-a-dire a se tromper en silence au moment de payer.
+    ("professeurs", "tarif", "TEXT"),
 ]
 
 # Rattachement des lignes deja ecrites : le nom est ce qu'on a.
@@ -473,6 +480,10 @@ RECOLLAGES = [
     ("UPDATE lives SET professeur_id ="
      " (SELECT pr.id FROM professeurs pr WHERE pr.nom = lives.formateur)"
      " WHERE professeur_id IS NULL AND formateur != ''"),
+    # Une colonne ajoutee arrive a NULL sur les lignes deja ecrites, alors
+    # que le schema dit « texte, vide par defaut ». Deux facons d'etre vide
+    # pour la meme chose finissent par se voir : on les ramene a une seule.
+    ("UPDATE professeurs SET tarif = '' WHERE tarif IS NULL"),
 ]
 
 # Un commentaire est libre mais pas sans fin : au-dela, c'est un rapport.

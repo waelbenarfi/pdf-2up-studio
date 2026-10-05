@@ -223,6 +223,10 @@ def _valeurs_professeur(valeurs, base=None):
                       etiquette="Nom du professeur"),
         "telephone": _texte(valeurs, "telephone", base.get("telephone", "")),
         "matiere": _texte(valeurs, "matiere", base.get("matiere", "")),
+        # Du texte libre, et non un montant : les tarifs reels sont « 50dt
+        # par seance », mais aussi « 25% » ou « 50dt pour 3eme / 40dt pour
+        # 2eme ». Forcer un nombre obligerait a en perdre la moitie.
+        "tarif": _texte(valeurs, "tarif", base.get("tarif", "")),
         "note": _texte(valeurs, "note", base.get("note", "")),
         "actif": 1 if valeurs.get("actif", base.get("actif", 1)) else 0,
     }
@@ -269,9 +273,14 @@ def importer_professeurs(lignes, par=""):
         existant = db.un("SELECT * FROM professeurs WHERE nom = ?",
                          (champs["nom"],))
         if existant:
-            if champs["telephone"] and not existant["telephone"]:
-                db.modifier("professeurs", existant["id"],
-                            {"telephone": champs["telephone"]})
+            # On complete ce qui manquait -- numero, tarif -- sans jamais
+            # ecraser ce qui est deja la : une correction faite a la main
+            # vaut mieux que la enieme version d'un fichier.
+            manquants = {cle: champs[cle] for cle in ("telephone", "tarif",
+                                                      "matiere")
+                         if champs.get(cle) and not existant.get(cle)}
+            if manquants:
+                db.modifier("professeurs", existant["id"], manquants)
                 completes.append(champs["nom"])
             else:
                 connus.append(champs["nom"])

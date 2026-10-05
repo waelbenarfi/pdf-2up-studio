@@ -56,8 +56,9 @@ export async function vueProfesseurs (params) {
     liste.length
       ? tableau({
         colonnes: [
-          { titre: 'Professeur' }, { titre: 'Matière', largeur: '180px' },
-          { titre: 'Téléphone', largeur: '200px' },
+          { titre: 'Professeur' }, { titre: 'Matière', largeur: '160px' },
+          { titre: 'Tarif', largeur: '150px' },
+          { titre: 'Téléphone', largeur: '190px' },
           { titre: 'Séances', largeur: '100px' },
           { titre: '', classe: 'actions', largeur: '110px' }
         ],
@@ -67,6 +68,11 @@ export async function vueProfesseurs (params) {
             h('span', { class: 'principal' }, prof.nom),
             prof.note ? h('div', { class: 'discret' }, prof.note) : null),
           prof.matiere || '—',
+          // un tarif manquant se voit : c'est une fiche qu'on ne peut pas
+          // payer sans aller demander
+          prof.tarif
+            ? h('span', { class: 'principal' }, prof.tarif)
+            : badge('tarif à renseigner', 'warn', ico('alerte', 11)),
           boutonAppel(prof.telephone) || badge('à renseigner', 'warn'),
           h('span', { class: 'discret' }, `${prof.seances} séance(s)`),
           actionsLigne(
@@ -134,7 +140,8 @@ function releve (fiabilite) {
 
 export function ouvrirProfesseur ({ prof = null, apres = null } = {}) {
   const modif = !!prof
-  const base = prof || { nom: '', telephone: '', matiere: '', note: '' }
+  const base = prof || { nom: '', telephone: '', matiere: '', tarif: '',
+    note: '' }
   const refs = {}
 
   const corps = h('div', { style: { display: 'flex', flexDirection: 'column', gap: '14px' } },
@@ -149,6 +156,12 @@ export function ouvrirProfesseur ({ prof = null, apres = null } = {}) {
       champTexte(refs, 'matiere', 'Matière', {
         valeur: base.matiere, optionnel: true, exemple: 'Ex. Mathématiques'
       })),
+    champTexte(refs, 'tarif', 'Tarif par séance', {
+      valeur: base.tarif, optionnel: true,
+      exemple: 'Ex. 50dt par séance',
+      aide: 'Tel qu’il est convenu : un montant, un pourcentage, ou les deux '
+        + 'selon le niveau'
+    }),
     champZone(refs, 'note', 'Remarque', {
       valeur: base.note, lignes: 2, optionnel: true,
       exemple: 'Ex. ne répond pas avant 17 h, préfère WhatsApp.'
@@ -215,6 +228,8 @@ export function ouvrirImportProfs () {
           badge(`${n} professeur(s)`, 'ok', ico('equipe', 12)),
           badge(`${lu.profs.filter(p => p.telephone).length} avec un numéro`,
             'accent', ico('telephone', 12)),
+          badge(`${lu.profs.filter(p => p.tarif).length} avec un tarif`,
+            'info', ico('billet', 12)),
           lu.ecartees.length
             ? badge(`${lu.ecartees.length} ligne(s) écartée(s)`, 'warn',
               ico('alerte', 12))
@@ -225,24 +240,29 @@ export function ouvrirImportProfs () {
             : h('div')),
       n
         ? tableau({
-          colonnes: [{ titre: 'Nom' }, { titre: 'Téléphone', largeur: '160px' },
-            { titre: 'Matière', largeur: '150px' }],
+          colonnes: [{ titre: 'Nom' }, { titre: 'Téléphone', largeur: '150px' },
+            { titre: 'Matière', largeur: '140px' },
+            { titre: 'Tarif', largeur: '140px' }],
           lignes: lu.profs.slice(0, 8),
-          rendu: (p) => [p.nom, p.telephone || '—', p.matiere || '—'],
+          rendu: (p) => [p.nom, p.telephone || '—', p.matiere || '—',
+            p.tarif || '—'],
           message: vide({ titre: 'Rien à montrer' })
         })
         : null,
       n > 8 ? h('p', { class: 's-info' }, `… et ${n - 8} autre(s).`) : null,
       n
-        ? info('Un professeur déjà connu n’est pas recréé : son numéro est '
-          + 'complété s’il manquait, et laissé tel quel sinon.')
+        ? info('Un professeur déjà connu n’est pas recréé : son numéro, son '
+          + 'tarif et sa matière sont complétés s’ils manquaient, et laissés '
+          + 'tels quels sinon — une correction faite à la main n’est jamais '
+          + 'écrasée.')
         : null)
   }
 
   relire()
   modale({
     titre: 'Importer des professeurs',
-    sous: 'Nom, téléphone, matière — dans cet ordre ou avec une ligne d’en-tête.',
+    sous: 'Nom, téléphone, matière, tarif — dans cet ordre ou avec une '
+      + 'ligne d’en-tête.',
     largeur: 'large',
     corps: h('div', { style: { display: 'flex', flexDirection: 'column', gap: '14px' } },
       zone, apercu),
@@ -261,7 +281,7 @@ export function ouvrirImportProfs () {
             fermer()
             toast(`${fait.crees} professeur(s) ajouté(s)`
               + (fait.completes.length
-                ? `, ${fait.completes.length} numéro(s) complété(s)` : '')
+                ? `, ${fait.completes.length} fiche(s) complétée(s)` : '')
               + (fait.connus.length
                 ? `, ${fait.connus.length} déjà connu(s)` : '') + '.')
             await chargerProfesseurs()
@@ -272,7 +292,7 @@ export function ouvrirImportProfs () {
   })
 }
 
-/** Nom, téléphone, matière. Le nom seul est obligatoire. */
+/** Nom, téléphone, matière, tarif. Le nom seul est obligatoire. */
 export function lireProfs (texte) {
   const lignes = String(texte || '').split(/\r?\n/)
     .map(l => l.trim()).filter(Boolean)
@@ -292,7 +312,8 @@ export function lireProfs (texte) {
     profs.push({
       nom: cases[0],
       telephone: (cases[1] || '').trim(),
-      matiere: (cases[2] || '').trim()
+      matiere: (cases[2] || '').trim(),
+      tarif: (cases[3] || '').trim()
     })
   })
   return { profs, ecartees }

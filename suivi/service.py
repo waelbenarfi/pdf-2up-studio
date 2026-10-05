@@ -169,7 +169,8 @@ def professeurs(actifs_seulement=False):
            " FROM professeurs pr LEFT JOIN lives l ON l.professeur_id = pr.id")
     if actifs_seulement:
         sql += " WHERE pr.actif = 1"
-    return db.tous(sql + " GROUP BY pr.id ORDER BY pr.actif DESC, pr.nom")
+    return [_fiche_professeur(ligne) for ligne in
+            db.tous(sql + " GROUP BY pr.id ORDER BY pr.actif DESC, pr.nom")]
 
 
 def fiabilite_professeurs(jours=90):
@@ -223,13 +224,25 @@ def _valeurs_professeur(valeurs, base=None):
                       etiquette="Nom du professeur"),
         "telephone": _texte(valeurs, "telephone", base.get("telephone", "")),
         "matiere": _texte(valeurs, "matiere", base.get("matiere", "")),
-        # Du texte libre, et non un montant : les tarifs reels sont « 50dt
-        # par seance », mais aussi « 25% » ou « 50dt pour 3eme / 40dt pour
-        # 2eme ». Forcer un nombre obligerait a en perdre la moitie.
-        "tarif": _texte(valeurs, "tarif", base.get("tarif", "")),
         "note": _texte(valeurs, "note", base.get("note", "")),
         "actif": 1 if valeurs.get("actif", base.get("actif", 1)) else 0,
     }
+
+
+def _fiche_professeur(ligne):
+    """La fiche telle qu'elle part a l'interface.
+
+    Le tarif a ete retire du site : la colonne existe toujours et garde ce
+    qui y avait ete saisi, mais plus rien ne doit la faire sortir. Un
+    « SELECT * » l'aurait envoyee au navigateur sans que l'ecran l'affiche
+    -- retiree de l'ecran seulement, elle serait restee lisible par qui
+    ouvre les outils de developpement.
+    """
+    if ligne is None:
+        return None
+    sortie = dict(ligne)
+    sortie.pop("tarif", None)
+    return sortie
 
 
 def creer_professeur(valeurs, par=""):
@@ -245,7 +258,8 @@ def creer_professeur(valeurs, par=""):
                 " WHERE professeur_id IS NULL AND formateur = ?",
                 (ident, champs["nom"]))
     journaliser("Professeur ajouté", champs["nom"], champs["telephone"], par)
-    return db.un("SELECT * FROM professeurs WHERE id = ?", (ident,))
+    return _fiche_professeur(
+        db.un("SELECT * FROM professeurs WHERE id = ?", (ident,)))
 
 
 def importer_professeurs(lignes, par=""):
@@ -273,11 +287,10 @@ def importer_professeurs(lignes, par=""):
         existant = db.un("SELECT * FROM professeurs WHERE nom = ?",
                          (champs["nom"],))
         if existant:
-            # On complete ce qui manquait -- numero, tarif -- sans jamais
-            # ecraser ce qui est deja la : une correction faite a la main
-            # vaut mieux que la enieme version d'un fichier.
-            manquants = {cle: champs[cle] for cle in ("telephone", "tarif",
-                                                      "matiere")
+            # On complete ce qui manquait sans jamais ecraser ce qui est
+            # deja la : une correction faite a la main vaut mieux que la
+            # enieme version d'un fichier.
+            manquants = {cle: champs[cle] for cle in ("telephone", "matiere")
                          if champs.get(cle) and not existant.get(cle)}
             if manquants:
                 db.modifier("professeurs", existant["id"], manquants)
@@ -310,7 +323,8 @@ def modifier_professeur(ident, valeurs, par=""):
         db.executer("UPDATE lives SET formateur = ? WHERE professeur_id = ?",
                     (champs["nom"], ident))
     journaliser("Professeur modifié", champs["nom"], "", par)
-    return db.un("SELECT * FROM professeurs WHERE id = ?", (ident,))
+    return _fiche_professeur(
+        db.un("SELECT * FROM professeurs WHERE id = ?", (ident,)))
 
 
 def supprimer_professeur(ident, par=""):

@@ -691,10 +691,8 @@ COLONNES = {
         ("statut", "Statut"), ("rapport_reference", "Rapport"),
         ("tachesFaites", "Étapes faites"), ("tachesTotal", "Étapes au total"),
     ],
-    # Le repertoire sert aussi a payer : le tarif y figure, et le nombre de
-    # seances a cote, parce que c'est le produit des deux qu'on cherche.
     "professeurs": [
-        ("nom", "Professeur"), ("matiere", "Matière"), ("tarif", "Tarif"),
+        ("nom", "Professeur"), ("matiere", "Matière"),
         ("telephone", "Téléphone"), ("seances", "Séances"),
         ("note", "Remarque"),
     ],

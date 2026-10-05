@@ -461,11 +461,10 @@ COLONNES_AJOUTEES = [
     # texte libre : impossible a compter. C'est pourtant ce qu'on veut savoir
     # d'un professeur au bout de trois mois.
     ("rapports", "absent_prof", "INTEGER"),
-    # Ce que coute une seance avec ce professeur. Du texte, et non un
-    # nombre : les tarifs reels ne sont pas tous des montants -- « 50dt par
-    # seance », mais aussi « 25% » ou « 50dt pour 3eme / 40dt pour 2eme ».
-    # Les ranger de force dans un entier aurait oblige a en perdre une
-    # partie, c'est-a-dire a se tromper en silence au moment de payer.
+    # Le tarif a ete retire de l'interface en octobre 2026, a la demande.
+    # La colonne reste : elle porte des montants deja saisis, et une base
+    # neuve doit avoir la meme forme qu'une base existante. Plus rien ne la
+    # lit ni ne l'ecrit -- c'est de la donnee mise de cote, pas effacee.
     ("professeurs", "tarif", "TEXT"),
 ]
 

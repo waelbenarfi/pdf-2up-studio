@@ -691,6 +691,13 @@ COLONNES = {
         ("statut", "Statut"), ("rapport_reference", "Rapport"),
         ("tachesFaites", "Étapes faites"), ("tachesTotal", "Étapes au total"),
     ],
+    # Le repertoire sert aussi a payer : le tarif y figure, et le nombre de
+    # seances a cote, parce que c'est le produit des deux qu'on cherche.
+    "professeurs": [
+        ("nom", "Professeur"), ("matiere", "Matière"), ("tarif", "Tarif"),
+        ("telephone", "Téléphone"), ("seances", "Séances"),
+        ("note", "Remarque"),
+    ],
     "tickets": [
         ("reference", "Référence"), ("sujet", "Sujet"),
         ("categorie", "Catégorie"), ("priorite", "Priorité"),
@@ -709,6 +716,8 @@ def export(quoi):
         lignes = service.rapports()
     elif quoi == "lives":
         lignes = service.lives()
+    elif quoi == "professeurs":
+        lignes = service.professeurs()
     else:
         lignes = service.tickets()
 

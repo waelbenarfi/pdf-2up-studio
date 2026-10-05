@@ -47,7 +47,11 @@ export async function vueProfesseurs (params) {
         ? 'Leur numéro apparaît sur l’étape « Appeler le professeur ».'
         : 'Consultable par toute l’équipe ; seul l’administrateur le modifie.',
       actions: etat.admin
-        ? [h('button', { class: 'b', onclick: () => ouvrirImportProfs() },
+        ? [h('a', {
+          class: 'b', href: '/api/suivi/export/professeurs.csv', download: '',
+          title: 'Tarifs, numéros et nombre de séances — s’ouvre dans Excel'
+        }, ico('telecharger', 15), 'Excel'),
+        h('button', { class: 'b', onclick: () => ouvrirImportProfs() },
           ico('recevoir', 15), 'Importer'),
         h('button', { class: 'b primaire', onclick: () => ouvrirProfesseur({}) },
           ico('plus', 15), 'Ajouter un professeur')]

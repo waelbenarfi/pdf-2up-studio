@@ -59,6 +59,29 @@ STATUTS_LIVE = [
 PLATEFORMES = ["Zoom", "Google Meet", "Microsoft Teams", "YouTube Live",
                "Facebook Live", "Autre"]
 
+# ---------------------------------------------------------------- niveaux
+# Le calendrier nomme ses seances « Matiere | Niveau | Groupe » -- par
+# exemple « Anglais | Bac Lettres | Elite ». Le niveau est donc deja ecrit
+# sur chaque seance : la fiche du professeur n'a pas a le redemander, elle
+# n'a qu'a le relire. Un niveau saisi a la main sur la fiche se demoderait
+# au premier changement de planning, et personne ne le corrigerait.
+#
+# Les familles sont dans l'ordre de la scolarite, parce que c'est l'ordre
+# dans lequel on s'attend a les lire.
+NIVEAUX_FAMILLES = ["7ème", "8ème", "9ème", "1ère", "2ème", "3ème", "Bac"]
+
+# Les sections de chaque famille qui en a. Elles servent a ecrire « toutes
+# les sections » au lieu de six noms : un professeur qui prend les six bacs
+# se lit d'un coup d'oeil. La 2eme annee n'a ni Math ni Technique -- ces
+# deux sections ne se separent qu'en 3eme.
+SECTIONS = {
+    "2ème": ["Sciences", "Informatique", "Économie", "Lettres"],
+    "3ème": ["Math", "Sciences", "Technique", "Informatique", "Économie",
+             "Lettres"],
+    "Bac": ["Math", "Sciences", "Technique", "Informatique", "Économie",
+            "Lettres"],
+}
+
 # ---------------------------------------------------------------- taches
 # Le deroule d'une seance, du premier coup de fil au depot du fichier final.
 # L'ordre de la liste est l'ordre d'affichage : il raconte la journee, et

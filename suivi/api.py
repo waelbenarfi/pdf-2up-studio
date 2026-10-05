@@ -693,8 +693,8 @@ COLONNES = {
     ],
     "professeurs": [
         ("nom", "Professeur"), ("matiere", "Matière"),
-        ("telephone", "Téléphone"), ("seances", "Séances"),
-        ("note", "Remarque"),
+        ("niveaux", "Niveaux"), ("telephone", "Téléphone"),
+        ("seances", "Séances"), ("note", "Remarque"),
     ],
     "tickets": [
         ("reference", "Référence"), ("sujet", "Sujet"),

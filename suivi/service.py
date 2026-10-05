@@ -164,12 +164,123 @@ def supprimer_personne(ident, par=""):
 # =============================================================== professeurs
 # La premiere etape de chaque seance est d'appeler le professeur : son
 # numero a sa place ici, pas dans un carnet a cote du clavier.
+def niveaux_du_titre(titre):
+    """Les niveaux couverts par une seance, lus dans son intitule.
+
+    Le calendrier ecrit « Matiere | Niveau | Groupe », et le niveau du
+    milieu est parfois collectif : « 5 bacs : Math, Sciences, Technique,
+    Informatique, Economie », ou « 2eme Sciences + 2eme Informatique ». Une
+    seance commune a cinq bacs compte pour les cinq, sinon le professeur qui
+    les reunit paraitrait n'en assurer aucun.
+    """
+    morceaux = [m.strip() for m in str(titre or "").split("|")]
+    brut = morceaux[1] if len(morceaux) > 1 else ""
+    if not brut:
+        return []
+    if ":" in brut:
+        # « 5 bacs : Math, Sciences » -- la tete donne la famille, la queue
+        # les sections. « 6 classes : 3eme Math, ... » les porte deja.
+        tete, queue = brut.split(":", 1)
+        items = [m.strip() for m in queue.split(",")]
+        if "bac" in tete.lower():
+            items = [m if m.lower().startswith("bac") else "Bac " + m
+                     for m in items]
+    elif "+" in brut:
+        items = [m.strip() for m in brut.split("+")]
+    else:
+        items = [brut]
+    return [m for m in items if m and _est_un_niveau(m)]
+
+
+def _est_un_niveau(item):
+    """Le segment du milieu n'est pas toujours un niveau.
+
+    Les seances saisies a la main s'intitulent parfois « Math - Seance 1 |
+    Classique » : le milieu y nomme le groupe, pas la classe. Sans ce
+    filtre, « Classique » s'afficherait comme un niveau sur la fiche du
+    professeur -- une erreur visible, et que personne ne pourrait corriger
+    depuis l'ecran.
+
+    En echange, un niveau d'une famille inconnue est ignore. C'est le bon
+    sens du compromis : mieux vaut une case vide qu'un faux niveau, et la
+    liste des familles se complete en un endroit (schema.NIVEAUX_FAMILLES).
+    """
+    nu = item.lower()
+    return any(nu.startswith(famille.lower())
+               for famille in schema.NIVEAUX_FAMILLES)
+
+
+def _famille_et_section(niveau):
+    """« Bac Lettres » -> (« Bac », « Lettres »)."""
+    for famille in schema.NIVEAUX_FAMILLES:
+        if niveau.startswith(famille):
+            return famille, niveau[len(famille):].strip()
+    return niveau, ""
+
+
+def _rang_niveau(niveau):
+    """De la 7eme au bac, et dans l'ordre des sections de la famille."""
+    famille, section = _famille_et_section(niveau)
+    if famille not in schema.NIVEAUX_FAMILLES:
+        # un niveau inconnu passe en fin de liste plutot que de se perdre
+        return (len(schema.NIVEAUX_FAMILLES), 0, niveau)
+    sections = schema.SECTIONS.get(famille, [])
+    place = sections.index(section) if section in sections else len(sections)
+    return (schema.NIVEAUX_FAMILLES.index(famille), place, section)
+
+
+def ordonner_niveaux(niveaux):
+    return sorted(set(niveaux), key=_rang_niveau)
+
+
+def grouper_niveaux(niveaux):
+    """Les niveaux ranges par famille, pour tenir sur une ligne.
+
+    « Bac Math, Bac Sciences, Bac Technique, Bac Informatique, Bac Economie,
+    Bac Lettres » demande six pastilles et ne se lit plus ; « Bac : toutes
+    les sections » dit la meme chose d'un coup d'oeil.
+    """
+    groupes = []
+    for niveau in ordonner_niveaux(niveaux):
+        famille, section = _famille_et_section(niveau)
+        if not groupes or groupes[-1]["famille"] != famille:
+            groupes.append({"famille": famille, "sections": [],
+                            "toutes": False})
+        if section:
+            groupes[-1]["sections"].append(section)
+    for groupe in groupes:
+        connues = schema.SECTIONS.get(groupe["famille"], [])
+        groupe["toutes"] = bool(connues) and set(connues) <= set(
+            groupe["sections"])
+    return groupes
+
+
+def _niveaux_par_professeur(ident=None):
+    """Ce que le planning dit des niveaux, fiche par fiche.
+
+    Une seule requete pour tout l'ecran : une par professeur ferait soixante
+    allers-retours pour afficher un tableau.
+    """
+    sql = ("SELECT professeur_id, titre FROM lives"
+           " WHERE professeur_id IS NOT NULL")
+    params = ()
+    if ident is not None:
+        sql += " AND professeur_id = ?"
+        params = (ident,)
+    trouves = {}
+    for ligne in db.tous(sql, params):
+        trouves.setdefault(ligne["professeur_id"], set()).update(
+            niveaux_du_titre(ligne["titre"]))
+    return trouves
+
+
 def professeurs(actifs_seulement=False):
     sql = ("SELECT pr.*, COUNT(l.id) AS seances"
            " FROM professeurs pr LEFT JOIN lives l ON l.professeur_id = pr.id")
     if actifs_seulement:
         sql += " WHERE pr.actif = 1"
-    return [_fiche_professeur(ligne) for ligne in
+    niveaux = _niveaux_par_professeur()
+    return [_fiche_professeur(ligne, niveaux.get(ligne["id"])) for ligne in
             db.tous(sql + " GROUP BY pr.id ORDER BY pr.actif DESC, pr.nom")]
 
 
@@ -229,7 +340,7 @@ def _valeurs_professeur(valeurs, base=None):
     }
 
 
-def _fiche_professeur(ligne):
+def _fiche_professeur(ligne, niveaux=None):
     """La fiche telle qu'elle part a l'interface.
 
     Le tarif a ete retire du site : la colonne existe toujours et garde ce
@@ -237,11 +348,20 @@ def _fiche_professeur(ligne):
     « SELECT * » l'aurait envoyee au navigateur sans que l'ecran l'affiche
     -- retiree de l'ecran seulement, elle serait restee lisible par qui
     ouvre les outils de developpement.
+
+    Les niveaux, eux, ne sont pas dans la table : ils viennent des seances.
+    `niveaux` est le texte d'un seul tenant, pour l'export ; `niveauxListe`
+    le detail ; `niveauxGroupes` la forme rangee par famille que le tableau
+    affiche.
     """
     if ligne is None:
         return None
     sortie = dict(ligne)
     sortie.pop("tarif", None)
+    ranges = ordonner_niveaux(niveaux or ())
+    sortie["niveaux"] = " · ".join(ranges)
+    sortie["niveauxListe"] = ranges
+    sortie["niveauxGroupes"] = grouper_niveaux(ranges)
     return sortie
 
 
@@ -259,7 +379,8 @@ def creer_professeur(valeurs, par=""):
                 (ident, champs["nom"]))
     journaliser("Professeur ajouté", champs["nom"], champs["telephone"], par)
     return _fiche_professeur(
-        db.un("SELECT * FROM professeurs WHERE id = ?", (ident,)))
+        db.un("SELECT * FROM professeurs WHERE id = ?", (ident,)),
+        _niveaux_par_professeur(ident).get(ident))
 
 
 def importer_professeurs(lignes, par=""):
@@ -324,7 +445,8 @@ def modifier_professeur(ident, valeurs, par=""):
                     (champs["nom"], ident))
     journaliser("Professeur modifié", champs["nom"], "", par)
     return _fiche_professeur(
-        db.un("SELECT * FROM professeurs WHERE id = ?", (ident,)))
+        db.un("SELECT * FROM professeurs WHERE id = ?", (ident,)),
+        _niveaux_par_professeur(ident).get(ident))
 
 
 def supprimer_professeur(ident, par=""):

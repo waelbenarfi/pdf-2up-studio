@@ -268,6 +268,11 @@ button.s-badge.clic { font-family: inherit; cursor: pointer;
 button.s-badge.clic:hover { border-color: currentColor; }
 button.s-badge.clic:focus-visible { outline: 2px solid currentColor;
   outline-offset: 1px; }
+/* les niveaux d'un professeur : plusieurs pastilles, et des libelles qui
+   ont le droit de passer a la ligne -- « 3eme : Math, Sciences, Technique »
+   ne tient pas sur une colonne de tableau sans se couper */
+.s-niveaux { display: flex; flex-wrap: wrap; gap: 5px; }
+.s-niveaux .s-badge { white-space: normal; text-align: start; }
 .t-ok     { color: var(--ok);     background: color-mix(in srgb, var(--ok) 15%, transparent);     border-color: color-mix(in srgb, var(--ok) 30%, transparent); }
 .t-warn   { color: var(--warn);   background: color-mix(in srgb, var(--warn) 16%, transparent);   border-color: color-mix(in srgb, var(--warn) 32%, transparent); }
 .t-danger { color: var(--danger); background: color-mix(in srgb, var(--danger) 15%, transparent); border-color: color-mix(in srgb, var(--danger) 30%, transparent); }

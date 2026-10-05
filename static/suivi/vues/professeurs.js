@@ -44,12 +44,13 @@ export async function vueProfesseurs (params) {
     carte({
       titre: `Professeurs · ${liste.length}`,
       sous: etat.admin
-        ? 'Leur numéro apparaît sur l’étape « Appeler le professeur ».'
+        ? 'Leur numéro apparaît sur l’étape « Appeler le professeur ». Les '
+          + 'niveaux sont relevés sur le planning.'
         : 'Consultable par toute l’équipe ; seul l’administrateur le modifie.',
       actions: etat.admin
         ? [h('a', {
           class: 'b', href: '/api/suivi/export/professeurs.csv', download: '',
-          title: 'Tarifs, numéros et nombre de séances — s’ouvre dans Excel'
+          title: 'Niveaux, numéros et nombre de séances — s’ouvre dans Excel'
         }, ico('telecharger', 15), 'Excel'),
         h('button', { class: 'b', onclick: () => ouvrirImportProfs() },
           ico('recevoir', 15), 'Importer'),
@@ -60,8 +61,9 @@ export async function vueProfesseurs (params) {
     liste.length
       ? tableau({
         colonnes: [
-          { titre: 'Professeur' }, { titre: 'Matière', largeur: '180px' },
-          { titre: 'Téléphone', largeur: '200px' },
+          { titre: 'Professeur' }, { titre: 'Matière', largeur: '150px' },
+          { titre: 'Niveaux', largeur: '240px' },
+          { titre: 'Téléphone', largeur: '180px' },
           { titre: 'Séances', largeur: '100px' },
           { titre: '', classe: 'actions', largeur: '110px' }
         ],
@@ -71,6 +73,7 @@ export async function vueProfesseurs (params) {
             h('span', { class: 'principal' }, prof.nom),
             prof.note ? h('div', { class: 'discret' }, prof.note) : null),
           prof.matiere || '—',
+          celluleNiveaux(prof),
           boutonAppel(prof.telephone) || badge('à renseigner', 'warn'),
           h('span', { class: 'discret' }, `${prof.seances} séance(s)`),
           actionsLigne(
@@ -96,6 +99,36 @@ export async function vueProfesseurs (params) {
           : null
       }))
   ]
+}
+
+/**
+ * Les niveaux d'un groupe, en une étiquette lisible.
+ *
+ * Six pastilles « Bac Math », « Bac Sciences »… ne se lisent plus ; quand
+ * la famille est complète, « Bac : toutes les sections » dit la même chose
+ * d'un coup d'œil.
+ */
+export function etiquetteNiveau (groupe) {
+  if (!groupe.sections.length) return groupe.famille
+  if (groupe.toutes) return `${groupe.famille} : toutes les sections`
+  return `${groupe.famille} : ${groupe.sections.join(', ')}`
+}
+
+/**
+ * Les niveaux du professeur, relus sur son planning.
+ *
+ * Rien n'est saisi ici : l'intitulé de chaque séance porte déjà le niveau.
+ * Une fiche remplie à la main se démoderait au premier changement de
+ * planning ; celle-ci suit le calendrier sans que personne y touche.
+ */
+function celluleNiveaux (prof) {
+  const groupes = prof.niveauxGroupes || []
+  if (!groupes.length) {
+    return h('span', { class: 'discret' },
+      prof.seances ? '—' : 'aucune séance')
+  }
+  return h('div', { class: 's-niveaux', title: prof.niveaux },
+    ...groupes.map(g => badge(etiquetteNiveau(g), 'info')))
 }
 
 /**
@@ -156,7 +189,11 @@ export function ouvrirProfesseur ({ prof = null, apres = null } = {}) {
     champZone(refs, 'note', 'Remarque', {
       valeur: base.note, lignes: 2, optionnel: true,
       exemple: 'Ex. ne répond pas avant 17 h, préfère WhatsApp.'
-    }))
+    }),
+    modif && base.niveaux
+      ? info(`Niveaux assurés : ${base.niveaux}. Relevés sur le planning, `
+        + 'ils se mettent à jour tout seuls — rien à saisir ici.')
+      : null)
 
   modale({
     titre: modif ? 'Modifier le professeur' : 'Nouveau professeur',

@@ -426,6 +426,20 @@ def repartir():
     return ok(service.repartir(corps.get("date") or db.aujourdhui(), _qui()))
 
 
+@suivi_bp.route("/api/suivi/lives/reaffecter", methods=["POST"])
+@auth.exiger_admin
+def reaffecter():
+    """Redonne un paquet de seances a d'autres personnes, a parts egales.
+
+    Sans `appliquer`, ne fait que decrire ce qui changerait.
+    """
+    corps = _corps()
+    return ok(service.reaffecter(
+        corps.get("du"), corps.get("versQui"), corps.get("deQui") or (),
+        corps.get("jours") or (), corps.get("au") or "",
+        bool(corps.get("appliquer")), _qui()))
+
+
 @suivi_bp.route("/api/suivi/lives/deplacer", methods=["POST"])
 @auth.exiger_admin
 def deplacer():

@@ -849,24 +849,24 @@ table.s-tableau { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 }
 .s-import-zone:focus { outline: none; border-color: var(--accent);
   background: var(--surface); }
-.s-import-equipe { display: flex; flex-wrap: wrap; gap: 7px; }
-.s-import-qui {
+.s-import-equipe, .s-choix-equipe { display: flex; flex-wrap: wrap; gap: 7px; }
+.s-import-qui, .s-choix-qui {
   display: inline-flex; align-items: center; gap: 7px;
   padding: 5px 11px 5px 7px; border-radius: 999px; cursor: pointer;
   border: 1px solid var(--line); background: var(--surface);
   color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 600;
   transition: border-color .14s, color .14s, background .14s;
 }
-.s-import-qui .case {
+.s-import-qui .case, .s-choix-qui .case {
   width: 17px; height: 17px; border-radius: 5px; flex: none;
   border: 1.5px solid var(--line); display: grid; place-items: center;
   color: transparent;
 }
-.s-import-qui.pris { color: var(--text);
+.s-import-qui.pris, .s-choix-qui.pris { color: var(--text);
   border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
   background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
-.s-import-qui.pris .case { background: var(--accent); border-color: var(--accent);
-  color: #fff; }
+.s-import-qui.pris .case, .s-choix-qui.pris .case {
+  background: var(--accent); border-color: var(--accent); color: #fff; }
 .s-import-resume { display: flex; flex-wrap: wrap; gap: 7px; }
 .s-import-part { display: flex; flex-wrap: wrap; gap: 12px;
   margin-top: 10px; color: var(--muted); }

@@ -985,6 +985,99 @@ def _jour(valeur, champ):
     return _date({champ: valeur}, champ)
 
 
+def _jour_semaine(iso):
+    """0 pour lundi, 6 pour dimanche -- l'ordre de schema.JOURS."""
+    an, mois, jour = (int(x) for x in iso.split("-"))
+    return datetime.date(an, mois, jour).weekday()
+
+
+def reaffecter(du, vers_qui, de_qui=(), jours=(), au="", appliquer=False,
+               par=""):
+    """Redonne un paquet de seances a d'autres personnes, a parts egales.
+
+    Quand quelqu'un quitte l'equipe -- ou qu'un jour de la semaine doit
+    revenir a deux personnes precises --, reprendre les seances une par une
+    au glisser-depose est long et laisse toujours un oubli derriere soi. On
+    decrit plutot ce qu'on veut : les seances de telles personnes, a partir
+    de telle date, tel jour de la semaine, a repartir entre telles autres.
+
+    Sans `appliquer`, rien n'est touche : on montre d'abord le plan. C'est
+    un changement en nombre, et on ne le decouvre pas apres coup.
+
+    Ne bougent pas : les seances annulees, et celles qui ont deja leur
+    rapport. Celles-la sont passees, et leur responsable est la personne
+    qui les a vraiment tenues -- la reecrire fausserait le releve du mois.
+    """
+    debut = _jour(du, "du")
+    fin = _jour(au, "au") if au else ""
+    if fin and fin < debut:
+        raise Refus("La date de fin est avant la date de début.")
+
+    equipe = {p["id"]: p for p in personnes(True)}
+    cibles, vus = [], set()
+    for brut in (vers_qui or ()):
+        ident = _entier(brut)
+        if ident in equipe and ident not in vus:
+            vus.add(ident)
+            cibles.append(equipe[ident])
+    if not cibles:
+        raise Refus("Choisissez au moins une personne à qui donner les "
+                    "séances.")
+
+    # 0 vaut « sans responsable » : une seance qui n'est a personne doit
+    # pouvoir entrer dans la reaffectation comme les autres.
+    sources = {_entier(x) or 0 for x in (de_qui or ())}
+    voulus = {_entier(x) for x in (jours or ()) if _entier(x) is not None}
+
+    retenues, annulees, faites = [], 0, 0
+    for item in lives(du=debut, au=fin or None):
+        if sources and (item["responsable_id"] or 0) not in sources:
+            continue
+        if voulus and _jour_semaine(item["date"]) not in voulus:
+            continue
+        if item["statut"] == "annule":
+            annulees += 1
+            continue
+        if item["aRapport"]:
+            faites += 1
+            continue
+        retenues.append(item)
+
+    # a parts egales, dans l'ordre du calendrier : chacun recoit une seance
+    # sur n, donc personne n'herite de toutes les soirees tardives
+    retenues.sort(key=lambda l: (l["date"], l["heure"] or "", l["id"]))
+    parts = {p["id"]: [] for p in cibles}
+    for rang, item in enumerate(retenues):
+        parts[cibles[rang % len(cibles)]["id"]].append(item)
+
+    if appliquer and retenues:
+        quand = db.maintenant()
+        for personne in cibles:
+            for item in parts[personne["id"]]:
+                if item["responsable_id"] != personne["id"]:
+                    db.modifier("lives", item["id"],
+                                {"responsable_id": personne["id"],
+                                 "maj_le": quand})
+        journaliser("Séances réaffectées",
+                    "%d séance(s) → %d personne(s)"
+                    % (len(retenues), len(cibles)),
+                    "à partir du %s" % debut, par)
+
+    return {
+        "du": debut, "au": fin, "jours": sorted(voulus),
+        "total": len(retenues), "annulees": annulees, "terminees": faites,
+        "applique": bool(appliquer and retenues),
+        "repartition": [{
+            "id": p["id"], "nom": p["nom"], "couleur": p.get("couleur", ""),
+            "combien": len(parts[p["id"]]),
+            "seances": [{"id": l["id"], "date": l["date"], "heure": l["heure"],
+                         "titre": l["titre"],
+                         "avant": l.get("responsable_nom", "")}
+                        for l in parts[p["id"]]],
+        } for p in cibles],
+    }
+
+
 def repartir(date, par=""):
     """Distribue les lives d'une journee entre les techniciens actifs."""
     equipe = personnes(True)

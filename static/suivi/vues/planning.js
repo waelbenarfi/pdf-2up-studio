@@ -3,7 +3,7 @@
 
 import {
   CONST, api, etat, h, aujourdhui, dateLongue, decalerJour, essayer,
-  rafraichir, personneDe, aller
+  rafraichir, remplir, personneDe, aller
 } from '../noyau.js'
 import {
   carte, vide, tableau, modale, confirmer, champTexte, champZone, champListe,
@@ -87,6 +87,10 @@ export async function vuePlanning (params) {
           onclick: () => deplacerJournee(date, lives),
           disabled: !lives.length
         }, ico('agenda', 15), 'Reporter le jour')
+        : null,
+      etat.admin
+        ? h('button', { class: 'b', onclick: () => reaffecterSeances(date) },
+          ico('equipe', 15), 'Réaffecter')
         : null,
       etat.admin
         ? h('button', { class: 'b', onclick: () => ouvrirImport() },
@@ -276,6 +280,164 @@ function deplacerJournee (date, lives) {
         }, ico('agenda', 15), 'Reporter'))
     ]
   })
+  return fermer
+}
+
+/** « 12/10 · 19:00 » — assez pour situer une séance dans un récapitulatif. */
+const courte = (seance) => seance
+  ? `${seance.date.slice(8, 10)}/${seance.date.slice(5, 7)}`
+    + `${seance.heure ? ' · ' + seance.heure.slice(0, 5) : ''}`
+  : '—'
+
+/**
+ * Réaffecter un paquet de séances, à parts égales.
+ *
+ * Quand quelqu'un quitte l'équipe — ou qu'un jour de la semaine doit
+ * revenir à deux personnes précises —, reprendre les séances une par une
+ * au glisser-déposer est long et laisse toujours un oubli derrière soi. On
+ * décrit ce qu'on veut, on regarde le plan, et on applique.
+ *
+ * Le plan vient du serveur : c'est lui qui répartira, donc c'est lui qui
+ * doit dire d'avance ce qu'il va faire. Un aperçu calculé ici pourrait
+ * annoncer autre chose que ce qui se passera.
+ */
+function reaffecterSeances (date) {
+  const equipe = etat.personnes.filter(p => p.actif)
+  const de = new Set()        // vide = les séances de tout le monde
+  const jours = new Set()     // vide = tous les jours de la semaine
+  const vers = new Set()
+  const refs = {}
+  let plan = null
+
+  const apercu = h('div')
+  const listeDe = h('div', { class: 's-choix-equipe' })
+  const listeJours = h('div', { class: 's-choix-equipe' })
+  const listeVers = h('div', { class: 's-choix-equipe' })
+  const bouton = h('button', { class: 'b primaire', disabled: true },
+    ico('echange', 15), 'Réaffecter')
+
+  const chip = (libelle, pris, surClic, personne = null) =>
+    h('button', {
+      type: 'button', class: `s-choix-qui ${pris ? 'pris' : ''}`,
+      onclick: surClic
+    },
+    h('span', { class: 'case' }, pris ? ico('coche', 13) : null),
+    personne ? pastille(personne, 'mini') : null,
+    h('span', {}, libelle))
+
+  function basculer (ensemble, valeur) {
+    if (ensemble.has(valeur)) ensemble.delete(valeur)
+    else ensemble.add(valeur)
+    dessiner()
+    montrer()
+  }
+
+  function dessiner () {
+    remplir(listeDe,
+      chip('Sans responsable', de.has(0), () => basculer(de, 0)),
+      ...equipe.map(p => chip(p.nom, de.has(p.id), () => basculer(de, p.id), p)))
+    remplir(listeJours, ...CONST.jours.map((nom, i) =>
+      chip(nom, jours.has(i), () => basculer(jours, i))))
+    remplir(listeVers, ...equipe.map(p =>
+      chip(p.nom, vers.has(p.id), () => basculer(vers, p.id), p)))
+  }
+
+  const demande = (appliquer) => ({
+    du: refs.du.value, au: refs.au.value,
+    deQui: [...de], jours: [...jours], versQui: [...vers], appliquer
+  })
+
+  async function montrer () {
+    plan = null
+    bouton.disabled = true
+    if (!vers.size) {
+      remplir(apercu, info('Cochez les personnes qui recevront les séances.'))
+      return
+    }
+    try {
+      plan = await api.post('/lives/reaffecter', demande(false))
+    } catch (souci) {
+      remplir(apercu, info(String(souci.message || souci)))
+      return
+    }
+    bouton.disabled = !plan.total
+    remplir(apercu,
+      h('div', { class: 's-import-resume' },
+        badge(`${plan.total} séance(s) à répartir`,
+          plan.total ? 'ok' : 'warn', ico('agenda', 12)),
+        plan.terminees
+          ? badge(`${plan.terminees} déjà rapportée(s), non touchée(s)`,
+            'muted')
+          : null,
+        plan.annulees ? badge(`${plan.annulees} annulée(s)`, 'muted') : null),
+      plan.total
+        ? tableau({
+          colonnes: [{ titre: 'Reçoit' }, { titre: 'Séances', largeur: '90px' },
+            { titre: 'Première', largeur: '120px' },
+            { titre: 'Dernière', largeur: '120px' }],
+          lignes: plan.repartition,
+          rendu: (part) => [
+            h('div', {
+              style: {
+                display: 'flex', alignItems: 'center', gap: '8px'
+              }
+            }, pastille(personneDe(part.id), 'mini'), part.nom),
+            h('b', {}, String(part.combien)),
+            h('span', { class: 'discret' }, courte(part.seances[0])),
+            h('span', { class: 'discret' },
+              courte(part.seances[part.seances.length - 1]))
+          ],
+          message: vide({ titre: 'Rien à répartir' })
+        })
+        : info('Aucune séance ne correspond : vérifiez la date de départ, '
+          + 'les personnes et les jours cochés.'))
+  }
+
+  const { fermer } = modale({
+    titre: 'Réaffecter des séances',
+    sous: 'À parts égales, dans l’ordre du calendrier.',
+    largeur: 'large',
+    corps: h('div', { style: { display: 'flex', flexDirection: 'column', gap: '14px' } },
+      h('div', { class: 's-lignes d2' },
+        champTexte(refs, 'du', 'À partir du', {
+          type: 'date', valeur: date, obligatoire: true, onsaisie: montrer
+        }),
+        champTexte(refs, 'au', 'Jusqu’au', {
+          type: 'date', valeur: '', optionnel: true, onsaisie: montrer,
+          aide: 'Vide = jusqu’à la dernière séance planifiée'
+        })),
+      h('div', { class: 's-champ' },
+        h('label', {}, 'Séances de ', h('span', { class: 'opt' },
+          '(rien de coché = tout le monde)')),
+        listeDe),
+      h('div', { class: 's-champ' },
+        h('label', {}, 'Seulement les ', h('span', { class: 'opt' },
+          '(rien de coché = tous les jours)')),
+        listeJours),
+      h('div', { class: 's-champ' },
+        h('label', {}, 'À répartir entre ',
+          h('span', { class: 'oblig' }, '*')),
+        listeVers),
+      apercu),
+    actions: (ferme) => {
+      bouton.addEventListener('click', async () => {
+        if (!plan || !plan.total) return
+        bouton.disabled = true
+        const fait = await essayer(
+          () => api.post('/lives/reaffecter', demande(true)),
+          `${plan.total} séance(s) réaffectée(s).`)
+        bouton.disabled = false
+        if (!fait) return
+        ferme()
+        rafraichir()
+      })
+      return [h('div', { class: 'droite' },
+        h('button', { class: 'b', onclick: ferme }, 'Annuler'), bouton)]
+    }
+  })
+
+  dessiner()
+  montrer()
   return fermer
 }
 

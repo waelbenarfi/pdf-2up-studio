@@ -373,8 +373,8 @@ function reaffecterSeances (date) {
       plan.total
         ? tableau({
           colonnes: [{ titre: 'Reçoit' }, { titre: 'Séances', largeur: '90px' },
-            { titre: 'Première', largeur: '120px' },
-            { titre: 'Dernière', largeur: '120px' }],
+            { titre: 'Du … au', largeur: '150px' },
+            { titre: 'Horaires reçus' }],
           lignes: plan.repartition,
           rendu: (part) => [
             h('div', {
@@ -383,9 +383,17 @@ function reaffecterSeances (date) {
               }
             }, pastille(personneDe(part.id), 'mini'), part.nom),
             h('b', {}, String(part.combien)),
-            h('span', { class: 'discret' }, courte(part.seances[0])),
             h('span', { class: 'discret' },
-              courte(part.seances[part.seances.length - 1]))
+              part.seances.length
+                ? `${courte(part.seances[0])} → `
+                  + `${courte(part.seances[part.seances.length - 1])}`
+                : '—'),
+            // deux personnes peuvent avoir le même nombre de séances sans
+            // avoir le même travail : c'est ici que l'équité se voit
+            h('div', { class: 's-niveaux' },
+              ...part.horaires.map(creneau =>
+                badge(`${creneau.heure}${creneau.combien > 1 ? ' × ' + creneau.combien : ''}`,
+                  'info')))
           ],
           message: vide({ titre: 'Rien à répartir' })
         })

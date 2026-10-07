@@ -985,6 +985,21 @@ def _jour(valeur, champ):
     return _date({champ: valeur}, champ)
 
 
+def _compter_horaires(seances):
+    """Les heures de debut recues, et combien de fois chacune.
+
+    Deux personnes peuvent avoir le meme nombre de seances sans avoir le
+    meme travail : trois soirs a 20 h 30 ne valent pas trois fins
+    d'apres-midi. Le plan doit le montrer, sinon « a parts egales » ne veut
+    rien dire.
+    """
+    compte = {}
+    for item in seances:
+        heure = (item["heure"] or "—")[:5]
+        compte[heure] = compte.get(heure, 0) + 1
+    return [{"heure": h, "combien": n} for h, n in sorted(compte.items())]
+
+
 def _jour_semaine(iso):
     """0 pour lundi, 6 pour dimanche -- l'ordre de schema.JOURS."""
     an, mois, jour = (int(x) for x in iso.split("-"))
@@ -1043,12 +1058,42 @@ def reaffecter(du, vers_qui, de_qui=(), jours=(), au="", appliquer=False,
             continue
         retenues.append(item)
 
-    # a parts egales, dans l'ordre du calendrier : chacun recoit une seance
-    # sur n, donc personne n'herite de toutes les soirees tardives
+    # A parts egales : le nombre, mais aussi l'horaire.
+    #
+    # Une simple distribution « une seance sur n » dans l'ordre du
+    # calendrier donne a chacun TOUJOURS le meme creneau des qu'une journee
+    # compte autant de seances que de personnes : le quatrieme herite de la
+    # derniere seance tous les soirs. Le compte etait juste et la
+    # repartition injuste.
+    #
+    # On tient donc deux equilibres a la fois :
+    #   le nombre   on sert toujours celui qui en a le moins, donc l'ecart
+    #               entre deux personnes ne depasse jamais une seance ;
+    #   l'horaire   a nombre egal, on sert celui qui a le moins souvent pris
+    #               ce rang-la dans la journee, puis celui dont les seances
+    #               sont en moyenne les plus tot.
+    #
+    # Le rang dans la journee, plutot que l'heure elle-meme : « tard » ne
+    # veut pas dire la meme chose un samedi a 17 h et un mardi a 21 h. Ce
+    # qu'on repartit, c'est la derniere seance de chaque soir.
     retenues.sort(key=lambda l: (l["date"], l["heure"] or "", l["id"]))
     parts = {p["id"]: [] for p in cibles}
-    for rang, item in enumerate(retenues):
-        parts[cibles[rang % len(cibles)]["id"]].append(item)
+    rangs = {p["id"]: {} for p in cibles}
+    tardif = {p["id"]: 0 for p in cibles}
+    jour_courant, rang = "", 0
+    for item in retenues:
+        if item["date"] != jour_courant:
+            jour_courant, rang = item["date"], 0
+        choisi = min(
+            range(len(cibles)),
+            key=lambda i: (len(parts[cibles[i]["id"]]),
+                           rangs[cibles[i]["id"]].get(rang, 0),
+                           tardif[cibles[i]["id"]], i))
+        ident = cibles[choisi]["id"]
+        parts[ident].append(item)
+        rangs[ident][rang] = rangs[ident].get(rang, 0) + 1
+        tardif[ident] += rang
+        rang += 1
 
     if appliquer and retenues:
         quand = db.maintenant()
@@ -1070,6 +1115,7 @@ def reaffecter(du, vers_qui, de_qui=(), jours=(), au="", appliquer=False,
         "repartition": [{
             "id": p["id"], "nom": p["nom"], "couleur": p.get("couleur", ""),
             "combien": len(parts[p["id"]]),
+            "horaires": _compter_horaires(parts[p["id"]]),
             "seances": [{"id": l["id"], "date": l["date"], "heure": l["heure"],
                          "titre": l["titre"],
                          "avant": l.get("responsable_nom", "")}

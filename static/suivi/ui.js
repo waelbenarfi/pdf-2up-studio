@@ -145,8 +145,14 @@ export function champZone (refs, nom, etiquette, options = {}) {
   return enveloppe(etiquette, champ, options)
 }
 
+// `verrouille` : le champ reste lisible, et garde sa valeur pour
+// l'enregistrement, mais ne se change plus. Un champ grisé dit « ce n'est
+// pas à vous de le décider » ; un champ absent laisse croire à un oubli.
 export function champListe (refs, nom, etiquette, choix, options = {}) {
-  const champ = h('select', { onchange: options.onchoix || null },
+  const champ = h('select', {
+    disabled: !!options.verrouille,
+    onchange: options.onchoix || null
+  },
     ...choix.map(item => h('option', {
       value: item.valeur,
       selected: String(item.valeur) === String(options.valeur ?? '')

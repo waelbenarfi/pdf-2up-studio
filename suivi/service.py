@@ -597,7 +597,10 @@ def _valeurs_live(valeurs, base=None):
         "formateur": nom_prof,
         "professeur_id": prof_id,
         "plateforme": _texte(valeurs, "plateforme", base.get("plateforme", "")),
-        "responsable_id": _entier(valeurs.get("responsable_id")),
+        # repli sur l'existant : une demande qui ne parle pas du responsable
+        # ne doit pas le retirer
+        "responsable_id": _entier(valeurs.get("responsable_id",
+                                              base.get("responsable_id"))),
         "statut": _choix(valeurs, "statut", schema.STATUTS_LIVE,
                          base.get("statut", "planifie")),
         "note": _texte(valeurs, "note", base.get("note", "")),

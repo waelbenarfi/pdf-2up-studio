@@ -344,10 +344,44 @@ def professeur(ident):
 
 
 # ------------------------------------------------------------------- lives
+# Qui tient une seance, c'est l'administrateur qui le decide. Un technicien
+# ne peut ni passer une seance a un collegue, ni s'en attribuer une : le
+# travail se distribue d'en haut, et l'historique du mois ne se refait pas
+# en glissant une carte. La verification est ici, pas seulement a l'ecran --
+# un bouton cache n'empeche personne d'appeler l'API directement.
+def _personne(valeur):
+    try:
+        return int(valeur)
+    except (TypeError, ValueError):
+        return None
+
+
+def _garder_responsable(ident, corps):
+    """Refuse un changement de responsable qui ne vient pas de l'admin.
+
+    Seul un vrai changement est refuse : l'ecran de modification renvoie
+    toute la fiche, responsable compris, et un technicien doit pouvoir
+    corriger l'heure d'une seance sans que le champ inchange le bloque.
+    """
+    if auth.est_admin() or "responsable_id" not in corps:
+        return
+    actuel = db.un("SELECT responsable_id FROM lives WHERE id = ?", (ident,))
+    if _personne(corps.get("responsable_id")) == _personne(
+            (actuel or {}).get("responsable_id")):
+        return
+    raise auth.Refus("Seul l'administrateur change le responsable d'une "
+                     "séance.")
+
+
 @suivi_bp.route("/api/suivi/lives", methods=["GET", "POST"])
 def lives():
     if request.method == "POST":
-        return ok(service.creer_live(_corps(), _qui()))
+        corps = _corps()
+        if not auth.est_admin():
+            # un technicien planifie pour lui-meme ; donner du travail a un
+            # autre reste une decision d'administrateur
+            corps["responsable_id"] = (auth.utilisateur() or {}).get("id")
+        return ok(service.creer_live(corps, _qui()))
     return ok(service.lives(
         date=_arg("date"), du=_arg("du"), au=_arg("au"),
         responsable=_arg("responsable"), statut=_arg("statut"),
@@ -385,7 +419,9 @@ def importer():
 
 
 @suivi_bp.route("/api/suivi/lives/repartir", methods=["POST"])
+@auth.exiger_admin
 def repartir():
+    """Redistribue toute une journee : elle remplace les attributions."""
     corps = _corps()
     return ok(service.repartir(corps.get("date") or db.aujourdhui(), _qui()))
 
@@ -442,7 +478,9 @@ def live(ident):
         if not trouve:
             raise service.Refus("Live introuvable.")
         return ok(trouve)
-    return ok(service.modifier_live(ident, _corps(), _qui()))
+    corps = _corps()
+    _garder_responsable(ident, corps)
+    return ok(service.modifier_live(ident, corps, _qui()))
 
 
 # ---------------------------------------------------------------- rapports

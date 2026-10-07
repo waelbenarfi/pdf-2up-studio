@@ -68,14 +68,19 @@ export async function vuePlanning (params) {
   return carte({
     titre: `Planification · ${dateLongue(date)}`,
     sous: `${lives.length} live${lives.length > 1 ? 's' : ''} · `
-      + `${nonAttribues.length} sans responsable · glissez une carte d’une colonne à l’autre`,
+      + `${nonAttribues.length} sans responsable · `
+      + (etat.admin
+        ? 'glissez une carte d’une colonne à l’autre'
+        : 'l’attribution est réservée à l’administrateur'),
     actions: [
       navigation,
-      h('button', {
-        class: 'b',
-        onclick: () => repartir(date),
-        disabled: !lives.length || !equipe.length
-      }, ico('echange', 15), 'Répartir'),
+      etat.admin
+        ? h('button', {
+          class: 'b',
+          onclick: () => repartir(date),
+          disabled: !lives.length || !equipe.length
+        }, ico('echange', 15), 'Répartir')
+        : null,
       etat.admin
         ? h('button', {
           class: 'b',
@@ -123,7 +128,7 @@ export async function vuePlanning (params) {
 function colonne ({ personne, lives, date }) {
   const sousTitre = personne
     ? `${lives.length} séance${lives.length > 1 ? 's' : ''}`
-    : 'glissez une carte ici'
+    : (etat.admin ? 'glissez une carte ici' : 'en attente d’attribution')
   const corps = h('div', { class: 's-colonne-corps' },
     ...lives.map(live => jeton(live)),
     lives.length ? null : h('div', { class: 's-colonne-vide' },
@@ -140,28 +145,34 @@ function colonne ({ personne, lives, date }) {
       badge(String(lives.length), lives.length ? 'accent' : 'muted')),
     corps)
 
-  boite.addEventListener('dragover', (e) => {
-    e.preventDefault()
-    boite.classList.add('survol')
-  })
-  boite.addEventListener('dragleave', () => boite.classList.remove('survol'))
-  boite.addEventListener('drop', async (e) => {
-    e.preventDefault()
-    boite.classList.remove('survol')
-    const id = Number(e.dataTransfer.getData('text/plain'))
-    if (!id) return
-    await essayer(
-      () => api.patch(`/lives/${id}`, { responsable_id: personne ? personne.id : null }),
-      personne ? `Live attribué à ${personne.nom}.` : 'Attribution retirée.')
-    rafraichir()
-  })
+  // seul l'administrateur attribue : pour les autres, la colonne ne
+  // reçoit rien et aucune carte ne se saisit
+  if (etat.admin) {
+    boite.addEventListener('dragover', (e) => {
+      e.preventDefault()
+      boite.classList.add('survol')
+    })
+    boite.addEventListener('dragleave', () => boite.classList.remove('survol'))
+    boite.addEventListener('drop', async (e) => {
+      e.preventDefault()
+      boite.classList.remove('survol')
+      const id = Number(e.dataTransfer.getData('text/plain'))
+      if (!id) return
+      await essayer(
+        () => api.patch(`/lives/${id}`, { responsable_id: personne ? personne.id : null }),
+        personne ? `Live attribué à ${personne.nom}.` : 'Attribution retirée.')
+      rafraichir()
+    })
+  }
   return boite
 }
 
 // L'heure et l'état d'abord, le titre ensuite, le compteur d'étapes en pied :
 // trois lignes de pastilles avant le titre faisaient perdre de vue la séance.
 function jeton (live) {
-  const carteLive = h('div', { class: 's-jeton', draggable: 'true' },
+  const carteLive = h('div', {
+    class: 's-jeton', draggable: etat.admin ? 'true' : 'false'
+  },
     h('div', { class: 'bandeau' },
       h('span', { class: 's-heure' }, live.heure || '—'),
       etiquetteRapport(live)),
@@ -177,14 +188,20 @@ function jeton (live) {
         : boutonIco(ico('document'), 'Remplir le rapport',
           () => ouvrirFormulaire({ live })),
       boutonIco(ico('crayon'), 'Modifier la séance', () => ouvrirLive({ live })),
-      boutonIco(ico('corbeille'), 'Supprimer', () => supprimerLive(live), 'danger')))
+      etat.admin
+        ? boutonIco(ico('corbeille'), 'Supprimer', () => supprimerLive(live),
+          'danger')
+        : null))
 
-  carteLive.addEventListener('dragstart', (e) => {
-    e.dataTransfer.setData('text/plain', String(live.id))
-    e.dataTransfer.effectAllowed = 'move'
-    carteLive.classList.add('porte')
-  })
-  carteLive.addEventListener('dragend', () => carteLive.classList.remove('porte'))
+  if (etat.admin) {
+    carteLive.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', String(live.id))
+      e.dataTransfer.effectAllowed = 'move'
+      carteLive.classList.add('porte')
+    })
+    carteLive.addEventListener('dragend',
+      () => carteLive.classList.remove('porte'))
+  }
   return carteLive
 }
 
@@ -272,9 +289,12 @@ function dureeDefaut () {
 
 export function ouvrirLive ({ live = null, date = null, apres = null } = {}) {
   const modif = !!live
+  // une séance créée par un technicien lui revient : c'est l'administrateur
+  // qui distribue le travail, et une séance sans personne se perd
   const base = live || {
     titre: '', date: date || aujourdhui(), heure: '09:00', heure_fin: '',
-    formateur: '', plateforme: CONST.plateformes[0], responsable_id: null,
+    formateur: '', plateforme: CONST.plateformes[0],
+    responsable_id: etat.admin ? null : etat.moi,
     statut: 'planifie', note: ''
   }
   const refs = {}
@@ -302,7 +322,13 @@ export function ouvrirLive ({ live = null, date = null, apres = null } = {}) {
     h('div', { class: 's-lignes d2' },
       champListe(refs, 'responsable_id', 'Responsable du suivi',
         optionsPersonnes(etat.personnes, 'À attribuer plus tard'),
-        { valeur: base.responsable_id ?? '' }),
+        {
+          valeur: base.responsable_id ?? '',
+          verrouille: !etat.admin,
+          aide: etat.admin
+            ? undefined
+            : 'Seul l’administrateur attribue une séance.'
+        }),
       champListe(refs, 'statut', 'Statut',
         optionsSimples(CONST.statutsLive), { valeur: base.statut })),
     champZone(refs, 'note', 'Note interne', {
@@ -315,7 +341,7 @@ export function ouvrirLive ({ live = null, date = null, apres = null } = {}) {
     sous: modif ? live.titre : 'Ajoutez une séance au planning.',
     corps,
     actions: (fermer) => [
-      modif
+      modif && etat.admin
         ? h('button', { class: 'b danger', onclick: () => { fermer(); supprimerLive(live) } }, ico('corbeille', 15), 'Supprimer')
         : null,
       h('div', { class: 'droite' },

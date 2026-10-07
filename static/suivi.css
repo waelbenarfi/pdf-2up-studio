@@ -176,6 +176,10 @@ body.connexion { display: grid; place-items: center; min-height: 100vh; }
   background: var(--surface-2); }
 .b:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .b:disabled { opacity: .45; cursor: not-allowed; }
+/* un champ qu'on n'a pas le droit de changer : lisible, mais visiblement
+   figé -- la ligne d'aide dessous dit a qui la decision revient */
+.s-champ select:disabled, .s-champ input:disabled {
+  opacity: .72; cursor: not-allowed; background: var(--surface-2); }
 .b:disabled:hover { border-color: var(--line); background: var(--surface); }
 
 /* Un aplat de la couleur de marque, sans degrade : la charte demande le

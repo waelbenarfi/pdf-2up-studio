@@ -287,6 +287,8 @@ CREATE TABLE IF NOT EXISTS parametres (
   valeur TEXT NOT NULL DEFAULT ''
 );
 
+-- `heure_min` et `jours` disent quand la personne peut prendre une seance :
+-- « pas avant 19 h », « mardi et mercredi ». Vides, elle peut tout prendre.
 CREATE TABLE IF NOT EXISTS personnes (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   nom          TEXT    NOT NULL,
@@ -294,6 +296,8 @@ CREATE TABLE IF NOT EXISTS personnes (
   email        TEXT    NOT NULL DEFAULT '',
   telephone    TEXT    NOT NULL DEFAULT '',
   couleur      TEXT    NOT NULL DEFAULT '#6f7cff',
+  heure_min    TEXT    NOT NULL DEFAULT '',
+  jours        TEXT    NOT NULL DEFAULT '',
   actif        INTEGER NOT NULL DEFAULT 1,
   cree_le      TEXT    NOT NULL
 );
@@ -489,6 +493,11 @@ COLONNES_AJOUTEES = [
     # neuve doit avoir la meme forme qu'une base existante. Plus rien ne la
     # lit ni ne l'ecrit -- c'est de la donnee mise de cote, pas effacee.
     ("professeurs", "tarif", "TEXT"),
+    # La disponibilite de chacun. Une contrainte vraie de la personne --
+    # « je ne suis pas libre avant 19 h » -- et non d'une repartition :
+    # posee une fois, elle vaut pour toutes les suivantes.
+    ("personnes", "heure_min", "TEXT"),
+    ("personnes", "jours", "TEXT"),
 ]
 
 # Rattachement des lignes deja ecrites : le nom est ce qu'on a.
@@ -506,6 +515,8 @@ RECOLLAGES = [
     # que le schema dit « texte, vide par defaut ». Deux facons d'etre vide
     # pour la meme chose finissent par se voir : on les ramene a une seule.
     ("UPDATE professeurs SET tarif = '' WHERE tarif IS NULL"),
+    ("UPDATE personnes SET heure_min = '' WHERE heure_min IS NULL"),
+    ("UPDATE personnes SET jours = '' WHERE jours IS NULL"),
 ]
 
 # Un commentaire est libre mais pas sans fin : au-dela, c'est un rapport.

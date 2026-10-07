@@ -8,7 +8,7 @@ import {
 import {
   carte, vide, tableau, modale, confirmer, champTexte, champZone, champListe,
   valeurs, badgeStatutLive, badge, pastille, boutonIco, actionsLigne,
-  optionsPersonnes, optionsSimples, info, ajouter
+  optionsPersonnes, optionsSimples, info, ajouter, libelleDispo
 } from '../ui.js'
 import { ouvrirFormulaire, ouvrirRapportDe } from './rapports.js'
 import { badgeTaches, boutonTaches, puceTaches } from './taches.js'
@@ -369,7 +369,19 @@ function reaffecterSeances (date) {
           ? badge(`${plan.terminees} déjà rapportée(s), non touchée(s)`,
             'muted')
           : null,
-        plan.annulees ? badge(`${plan.annulees} annulée(s)`, 'muted') : null),
+        plan.annulees ? badge(`${plan.annulees} annulée(s)`, 'muted') : null,
+        plan.orphelines.length
+          ? badge(`${plan.orphelines.length} que personne ne peut prendre`,
+            'warn', ico('alerte', 12))
+          : null),
+      plan.orphelines.length
+        ? info('Ces séances restent où elles sont : aucune des personnes '
+          + 'cochées n’est disponible à cette heure ou ce jour-là — '
+          + plan.orphelines.slice(0, 4).map(s =>
+            `${courte(s)} ${s.titre}`).join(' · ')
+          + (plan.orphelines.length > 4
+            ? ` … et ${plan.orphelines.length - 4} autre(s).` : '.'))
+        : null,
       plan.total
         ? tableau({
           colonnes: [{ titre: 'Reçoit' }, { titre: 'Séances', largeur: '90px' },
@@ -381,7 +393,15 @@ function reaffecterSeances (date) {
               style: {
                 display: 'flex', alignItems: 'center', gap: '8px'
               }
-            }, pastille(personneDe(part.id), 'mini'), part.nom),
+            }, pastille(personneDe(part.id), 'mini'),
+            h('div', {},
+              h('div', {}, part.nom),
+              // la contrainte sous le nom : sinon un total plus bas que les
+              // autres passe pour une erreur de répartition
+              libelleDispo({ heure_min: part.heureMin, jours: part.jours })
+                ? h('small', { class: 'discret' },
+                  libelleDispo({ heure_min: part.heureMin, jours: part.jours }))
+                : null)),
             h('b', {}, String(part.combien)),
             h('span', { class: 'discret' },
               part.seances.length

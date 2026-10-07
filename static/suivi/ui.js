@@ -6,6 +6,22 @@ import {
 } from './noyau.js'
 import { ico, icoFichierNom } from './icones.js'
 
+/**
+ * « pas avant 19:00 · mardi, mercredi » — ce qu'une personne peut prendre.
+ *
+ * Rien à dire quand elle est disponible partout : une ligne « toujours
+ * disponible » sur chaque fiche ferait du bruit pour rien.
+ */
+export function libelleDispo (personne) {
+  const bouts = []
+  if (personne.heure_min) bouts.push(`pas avant ${personne.heure_min}`)
+  const jours = personne.jours || []
+  if (jours.length) {
+    bouts.push(jours.map(j => (CONST.jours[j] || '').toLowerCase()).join(', '))
+  }
+  return bouts.join(' · ')
+}
+
 /* --------------------------------------------------------------- badges */
 export const badge = (texte, ton = 'muted', icone = null) =>
   h('span', { class: `s-badge t-${ton}` }, icone, texte)

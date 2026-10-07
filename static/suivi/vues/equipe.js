@@ -2,11 +2,11 @@
 // auteur d'un rapport. Ajout, modification et suppression libres.
 
 import {
-  CONST, api, etat, h, essayer, rafraichir, chargerPersonnes, ilYA,
+  CONST, api, etat, h, essayer, rafraichir, remplir, chargerPersonnes, ilYA,
   momentDe, aller, toast
 } from '../noyau.js'
 import {
-  carte, vide, tableau, modale, confirmer, champTexte, valeurs,
+  carte, vide, tableau, modale, confirmer, champTexte, valeurs, libelleDispo,
   badge, pastille, boutonIco, barreProgres, info
 } from '../ui.js'
 import { ico } from '../icones.js'
@@ -107,7 +107,10 @@ function fiche (personne, chiffres) {
       ico(personne.role === 'admin' ? 'bouclier' : 'equipe', 13),
       role.libelle)),
     moi ? badge('vous', 'accent') : null,
-    personne.actif ? null : badge('inactif', 'muted')),
+    personne.actif ? null : badge('inactif', 'muted'),
+    libelleDispo(personne)
+      ? badge(libelleDispo(personne), 'info', ico('horloge', 11))
+      : null),
   h('div', { class: 'b-groupe' },
     personne.aMotDePasse
       ? badge('peut se connecter', 'ok', ico('cadenas', 12))
@@ -262,13 +265,28 @@ function chiffresLisibles (chiffres) {
 export function ouvrirPersonne ({ personne = null, apres = null } = {}) {
   const modif = !!personne
   const base = personne || {
-    nom: '', email: '', telephone: '', actif: 1,
+    nom: '', email: '', telephone: '', actif: 1, heure_min: '', jours: [],
     // une couleur qui n'est pas déjà prise, pour distinguer les pastilles
     couleur: CONST.couleurs.find(c => !etat.personnes.some(p => p.couleur === c)) ||
       CONST.couleurs[etat.personnes.length % CONST.couleurs.length]
   }
   const refs = {}
   const couleur = { valeur: base.couleur }
+  // La disponibilité : elle ne verrouille rien, elle guide la répartition
+  // automatique. L'administrateur garde la main pour attribuer à qui il veut.
+  const jours = new Set(base.jours || [])
+  const listeJours = h('div', { class: 's-choix-equipe' })
+  const dessinerJours = () => remplir(listeJours,
+    ...CONST.jours.map((nom, i) => h('button', {
+      type: 'button', class: `s-choix-qui ${jours.has(i) ? 'pris' : ''}`,
+      onclick: () => {
+        if (jours.has(i)) jours.delete(i); else jours.add(i)
+        dessinerJours()
+      }
+    },
+    h('span', { class: 'case' }, jours.has(i) ? ico('coche', 13) : null),
+    h('span', {}, nom))))
+  dessinerJours()
 
   const pastilles = CONST.couleurs.map(teinte => {
     const bouton = h('button', {
@@ -307,7 +325,18 @@ export function ouvrirPersonne ({ personne = null, apres = null } = {}) {
       }),
       h('div', { class: 's-champ' },
         h('label', {}, 'Couleur'),
-        h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, ...pastilles))),
+        h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, ...pastilles)),
+      champTexte(refs, 'heure_min', 'Pas de séance avant', {
+        type: 'time', valeur: base.heure_min || '', optionnel: true,
+        aide: 'Laissez vide si toutes les heures conviennent'
+      }),
+      h('div', { class: 's-champ' },
+        h('label', {}, 'Jours possibles ',
+          h('span', { class: 'opt' }, '(rien de coché = tous les jours)')),
+        listeJours,
+        h('span', { class: 'aide' },
+          'Sert à la répartition automatique ; l’administrateur peut '
+          + 'toujours attribuer une séance à la main.'))),
     actions: (fermer) => [
       modif
         ? h('button', {
@@ -321,7 +350,11 @@ export function ouvrirPersonne ({ personne = null, apres = null } = {}) {
           class: 'b primaire',
           onclick: async (e) => {
             e.target.disabled = true
-            const donnees = { ...valeurs(refs), couleur: couleur.valeur }
+            const donnees = {
+              ...valeurs(refs),
+              couleur: couleur.valeur,
+              jours: [...jours].sort((a, b) => a - b)
+            }
             const fait = await essayer(
               () => modif ? api.patch(`/personnes/${personne.id}`, donnees)
                 : api.post('/personnes', donnees),

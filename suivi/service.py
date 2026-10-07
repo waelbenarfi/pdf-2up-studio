@@ -84,6 +84,39 @@ def _horodate(date_iso, heure):
 
 
 # ================================================================ personnes
+def _jours_liste(texte):
+    """« 1,2 » -> [1, 2]. Vide = tous les jours."""
+    sortie = []
+    for morceau in str(texte or "").split(","):
+        morceau = morceau.strip()
+        if morceau.isdigit() and 0 <= int(morceau) <= 6:
+            sortie.append(int(morceau))
+    return sorted(set(sortie))
+
+
+def _jours_texte(valeur):
+    """Ce qu'on range en base : « 1,2 », ou rien du tout."""
+    if valeur is None:
+        return ""
+    if not isinstance(valeur, str):
+        valeur = ",".join(str(x) for x in valeur)
+    return ",".join(str(j) for j in _jours_liste(valeur))
+
+
+def _disponibilite(valeurs):
+    """Les deux champs de disponibilite, quand la demande en parle.
+
+    Absents, ils ne sont pas touches : corriger un numero de telephone ne
+    doit pas effacer les horaires de quelqu'un.
+    """
+    champs = {}
+    if "heure_min" in valeurs:
+        champs["heure_min"] = _heure(valeurs, "heure_min")
+    if "jours" in valeurs:
+        champs["jours"] = _jours_texte(valeurs.get("jours"))
+    return champs
+
+
 def personnes(actifs_seulement=False):
     """L'equipe, avec son role et le fait d'avoir un mot de passe ou non.
 
@@ -110,20 +143,28 @@ def personnes(actifs_seulement=False):
     lignes = db.tous(sql + " ORDER BY p.actif DESC, p.nom")
     for ligne in lignes:
         ligne["aMotDePasse"] = 1 if ligne.pop("a_mdp", 0) else 0
+        # une liste pour l'interface, une chaine en base : l'ecran coche des
+        # jours, il n'a pas a savoir comment on les range
+        ligne["jours"] = _jours_liste(ligne.get("jours"))
+        ligne["heure_min"] = ligne.get("heure_min") or ""
     return lignes
 
 
 def creer_personne(valeurs, par=""):
     nom = _texte(valeurs, "nom", obligatoire=True, etiquette="Nom")
-    ident = db.inserer("personnes", {
+    champs = {
         "nom": nom,
         "fonction": schema.FONCTION,
         "email": _texte(valeurs, "email"),
         "telephone": _texte(valeurs, "telephone"),
         "couleur": _texte(valeurs, "couleur", schema.COULEURS[0]),
+        "heure_min": "",
+        "jours": "",
         "actif": 1 if valeurs.get("actif", True) else 0,
         "cree_le": db.maintenant(),
-    })
+    }
+    champs.update(_disponibilite(valeurs))
+    ident = db.inserer("personnes", champs)
     # toute personne a un compte des sa creation, mot de passe encore vide :
     # l'administrateur le posera, et rien ne se connecte sans mot de passe
     db.inserer("comptes", {"personne_id": ident, "role": "technicien",
@@ -146,6 +187,7 @@ def modifier_personne(ident, valeurs, par=""):
                                  etiquette=etiquette)
     if "actif" in valeurs:
         champs["actif"] = 1 if valeurs["actif"] else 0
+    champs.update(_disponibilite(valeurs))
     db.modifier("personnes", ident, champs)
     journaliser("Modification d'un membre", champs.get("nom", personne["nom"]),
                 "", par)
@@ -985,6 +1027,74 @@ def _jour(valeur, champ):
     return _date({champ: valeur}, champ)
 
 
+def _peut_prendre(personne, seance):
+    """Cette personne peut-elle prendre cette seance ?
+
+    Deux contraintes, toutes deux facultatives : une heure avant laquelle
+    elle n'est pas libre, et les jours de la semaine ou elle l'est. Elles ne
+    valent que pour la repartition automatique -- l'administrateur garde la
+    main et peut toujours attribuer a qui il veut.
+    """
+    heure = (seance.get("heure") or "")[:5]
+    mini = (personne.get("heure_min") or "")[:5]
+    if mini and heure and heure < mini:
+        return False
+    ouverts = personne.get("jours") or []
+    if ouverts and _jour_semaine(seance["date"]) not in ouverts:
+        return False
+    return True
+
+
+def _distribuer(seances, cibles):
+    """Repartit des seances entre des personnes. Deux equilibres, une regle.
+
+    Une simple distribution « une seance sur n » dans l'ordre du calendrier
+    donne a chacun TOUJOURS le meme creneau des qu'une journee compte autant
+    de seances que de personnes : le quatrieme herite de la derniere seance
+    tous les soirs. Le compte etait juste et la repartition injuste.
+
+    On tient donc ensemble :
+      le nombre   on sert toujours celui qui en a le moins, donc l'ecart
+                  entre deux personnes ne depasse jamais une seance ;
+      l'horaire   a nombre egal, on sert celui qui a le moins souvent pris
+                  ce rang-la dans la journee, puis celui dont les seances
+                  sont en moyenne les plus tot.
+
+    Le rang dans la journee, plutot que l'heure elle-meme : « tard » ne veut
+    pas dire la meme chose un samedi a 17 h et un mardi a 21 h. Ce qu'on
+    repartit, c'est la derniere seance de chaque soir.
+
+    Une seance que personne de disponible ne peut prendre n'est pas forcee
+    sur quelqu'un : elle ressort a part, et reste ou elle est.
+    """
+    ordre = sorted(seances, key=lambda l: (l["date"], l["heure"] or "",
+                                           l["id"]))
+    parts = {p["id"]: [] for p in cibles}
+    rangs = {p["id"]: {} for p in cibles}
+    tardif = {p["id"]: 0 for p in cibles}
+    orphelines = []
+    jour_courant, rang = "", 0
+    for item in ordre:
+        if item["date"] != jour_courant:
+            jour_courant, rang = item["date"], 0
+        possibles = [i for i, p in enumerate(cibles)
+                     if _peut_prendre(p, item)]
+        if not possibles:
+            orphelines.append(item)
+            rang += 1
+            continue
+        choisi = min(possibles,
+                     key=lambda i: (len(parts[cibles[i]["id"]]),
+                                    rangs[cibles[i]["id"]].get(rang, 0),
+                                    tardif[cibles[i]["id"]], i))
+        ident = cibles[choisi]["id"]
+        parts[ident].append(item)
+        rangs[ident][rang] = rangs[ident].get(rang, 0) + 1
+        tardif[ident] += rang
+        rang += 1
+    return parts, orphelines
+
+
 def _compter_horaires(seances):
     """Les heures de debut recues, et combien de fois chacune.
 
@@ -1058,42 +1168,7 @@ def reaffecter(du, vers_qui, de_qui=(), jours=(), au="", appliquer=False,
             continue
         retenues.append(item)
 
-    # A parts egales : le nombre, mais aussi l'horaire.
-    #
-    # Une simple distribution « une seance sur n » dans l'ordre du
-    # calendrier donne a chacun TOUJOURS le meme creneau des qu'une journee
-    # compte autant de seances que de personnes : le quatrieme herite de la
-    # derniere seance tous les soirs. Le compte etait juste et la
-    # repartition injuste.
-    #
-    # On tient donc deux equilibres a la fois :
-    #   le nombre   on sert toujours celui qui en a le moins, donc l'ecart
-    #               entre deux personnes ne depasse jamais une seance ;
-    #   l'horaire   a nombre egal, on sert celui qui a le moins souvent pris
-    #               ce rang-la dans la journee, puis celui dont les seances
-    #               sont en moyenne les plus tot.
-    #
-    # Le rang dans la journee, plutot que l'heure elle-meme : « tard » ne
-    # veut pas dire la meme chose un samedi a 17 h et un mardi a 21 h. Ce
-    # qu'on repartit, c'est la derniere seance de chaque soir.
-    retenues.sort(key=lambda l: (l["date"], l["heure"] or "", l["id"]))
-    parts = {p["id"]: [] for p in cibles}
-    rangs = {p["id"]: {} for p in cibles}
-    tardif = {p["id"]: 0 for p in cibles}
-    jour_courant, rang = "", 0
-    for item in retenues:
-        if item["date"] != jour_courant:
-            jour_courant, rang = item["date"], 0
-        choisi = min(
-            range(len(cibles)),
-            key=lambda i: (len(parts[cibles[i]["id"]]),
-                           rangs[cibles[i]["id"]].get(rang, 0),
-                           tardif[cibles[i]["id"]], i))
-        ident = cibles[choisi]["id"]
-        parts[ident].append(item)
-        rangs[ident][rang] = rangs[ident].get(rang, 0) + 1
-        tardif[ident] += rang
-        rang += 1
+    parts, orphelines = _distribuer(retenues, cibles)
 
     if appliquer and retenues:
         quand = db.maintenant()
@@ -1105,16 +1180,23 @@ def reaffecter(du, vers_qui, de_qui=(), jours=(), au="", appliquer=False,
                                  "maj_le": quand})
         journaliser("Séances réaffectées",
                     "%d séance(s) → %d personne(s)"
-                    % (len(retenues), len(cibles)),
+                    % (len(retenues) - len(orphelines), len(cibles)),
                     "à partir du %s" % debut, par)
 
     return {
         "du": debut, "au": fin, "jours": sorted(voulus),
-        "total": len(retenues), "annulees": annulees, "terminees": faites,
+        "total": len(retenues) - len(orphelines),
+        "annulees": annulees, "terminees": faites,
+        # celles que la disponibilite de chacun interdit : elles restent ou
+        # elles sont, et on le dit plutot que de les faire disparaitre
+        "orphelines": [{"date": l["date"], "heure": l["heure"],
+                        "titre": l["titre"]} for l in orphelines],
         "applique": bool(appliquer and retenues),
         "repartition": [{
             "id": p["id"], "nom": p["nom"], "couleur": p.get("couleur", ""),
             "combien": len(parts[p["id"]]),
+            "heureMin": p.get("heure_min", ""),
+            "jours": p.get("jours", []),
             "horaires": _compter_horaires(parts[p["id"]]),
             "seances": [{"id": l["id"], "date": l["date"], "heure": l["heure"],
                          "titre": l["titre"],
@@ -1125,18 +1207,28 @@ def reaffecter(du, vers_qui, de_qui=(), jours=(), au="", appliquer=False,
 
 
 def repartir(date, par=""):
-    """Distribue les lives d'une journee entre les techniciens actifs."""
+    """Distribue les lives d'une journee entre les techniciens actifs.
+
+    Meme regle que la reaffectation -- parts egales, creneaux qui tournent,
+    disponibilite de chacun respectee. De deux facons de repartir qui ne
+    donnent pas le meme resultat, il y en a une qui a tort.
+    """
     equipe = personnes(True)
     if not equipe:
         raise Refus("Ajoutez d'abord au moins un technicien dans l'équipe.")
-    jour = [l for l in lives(date=date) if l["statut"] != "annule"]
-    jour.sort(key=lambda l: l["heure"])
-    for index, item in enumerate(jour):
-        db.modifier("lives", item["id"],
-                    {"responsable_id": equipe[index % len(equipe)]["id"],
-                     "maj_le": db.maintenant()})
+    jour = [l for l in lives(date=date)
+            if l["statut"] != "annule" and not l["aRapport"]]
+    parts, orphelines = _distribuer(jour, equipe)
+    quand = db.maintenant()
+    for personne in equipe:
+        for item in parts[personne["id"]]:
+            if item["responsable_id"] != personne["id"]:
+                db.modifier("lives", item["id"],
+                            {"responsable_id": personne["id"],
+                             "maj_le": quand})
     journaliser("Répartition automatique", date,
-                "%d live(s) sur %d personne(s)" % (len(jour), len(equipe)), par)
+                "%d live(s) sur %d personne(s)"
+                % (len(jour) - len(orphelines), len(equipe)), par)
     return lives(date=date)
 
 

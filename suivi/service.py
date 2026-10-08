@@ -1294,6 +1294,18 @@ def _charge_hors_lot(lot, du, au=""):
     return charge
 
 
+def _plafond(personne):
+    """Combien de seances cette personne peut prendre dans une soiree.
+
+    Le defaut vaut pour tout le monde ; une fiche peut descendre plus bas,
+    jamais monter plus haut.
+    """
+    pose = personne.get("max_soir")
+    if pose is None:
+        return schema.MAX_SEANCES_SOIR
+    return min(int(pose), schema.MAX_SEANCES_SOIR)
+
+
 def _peut_prendre(personne, seance):
     """Cette personne peut-elle prendre cette seance ?
 
@@ -1312,7 +1324,7 @@ def _peut_prendre(personne, seance):
     return True
 
 
-def _distribuer_tour(seances, cibles):
+def _distribuer_tour(seances, cibles, deja=None):
     """A tour de role, dans l'ordre donne : A, B, C, D, A, B...
 
     L'autre regle equilibre les soirees et les totaux, ce qui est ce qu'on
@@ -1320,18 +1332,26 @@ def _distribuer_tour(seances, cibles):
     professeur, une par soir -- on prefere souvent voir tourner : c'est
     previsible, et chacun sait d'avance quand vient son tour.
 
-    La disponibilite reste respectee : si le suivant ne peut pas prendre la
-    seance, on passe au suivant, et c'est lui qui gardera son tour.
+    La disponibilite reste respectee, et le plafond du soir aussi : si le
+    suivant ne peut pas prendre la seance, on passe au suivant, et c'est lui
+    qui gardera son tour.
     """
     ordre = sorted(seances, key=lambda l: (l["date"], l["heure"] or "",
                                            l["id"]))
     parts = {p["id"]: [] for p in cibles}
     orphelines, depart = [], 0
+    du_soir, jour_courant = {}, ""
     for item in ordre:
+        if item["date"] != jour_courant:
+            jour_courant = item["date"]
+            du_soir = {p["id"]: (deja or {}).get((item["date"], p["id"]), 0)
+                       for p in cibles}
         for pas in range(len(cibles)):
             personne = cibles[(depart + pas) % len(cibles)]
-            if _peut_prendre(personne, item):
+            if (_peut_prendre(personne, item)
+                    and du_soir[personne["id"]] < _plafond(personne)):
                 parts[personne["id"]].append(item)
+                du_soir[personne["id"]] += 1
                 depart = (depart + pas + 1) % len(cibles)
                 break
         else:
@@ -1348,11 +1368,12 @@ def _distribuer(seances, cibles, deja=None):
     tous les soirs. Le compte etait juste et la repartition injuste.
 
     On tient donc ensemble, dans cet ordre :
-      le plafond  qui a dit « au plus n par soir » n'est servi, tant que
-                  d'autres sont sous le leur, que jusqu'a ce nombre. Un
-                  renfort n'est pas un titulaire. Le plafond flechit
-                  pourtant si tout le monde l'a atteint : mieux vaut une
-                  soiree un peu chargee qu'une seance sans personne ;
+      le plafond  quatre seances par soir et par personne (schema.
+                  MAX_SEANCES_SOIR), ou moins si sa fiche le dit -- un
+                  renfort n'est pas un titulaire. Il ne flechit pas : une
+                  seance que plus personne ne peut prendre ressort a part,
+                  visible, plutot que d'etre posee sur quelqu'un qui en a
+                  deja quatre ;
       la soiree   celui qui a le moins de seances CE SOIR-LA. C'est le
                   premier critere, et non le total : quelqu'un qui n'est
                   disponible que deux jours par semaine est toujours en
@@ -1397,12 +1418,13 @@ def _distribuer(seances, cibles, deja=None):
             orphelines.append(item)
             rang += 1
             continue
-        # sous leur plafond d'abord ; s'ils y sont tous, on repart de la
-        # liste entiere plutot que de laisser la seance sans responsable
-        sous_plafond = [i for i in possibles
-                        if cibles[i].get("max_soir") is None
-                        or du_soir[cibles[i]["id"]] < cibles[i]["max_soir"]]
-        possibles = sous_plafond or possibles
+        possibles = [i for i in possibles
+                     if du_soir[cibles[i]["id"]] < _plafond(cibles[i])]
+        if not possibles:
+            # tout le monde a ses quatre seances : celle-ci ne s'impose a
+            # personne, elle reste ou elle est et le plan la nomme
+            orphelines.append(item)
+            continue
         choisi = min(possibles,
                      key=lambda i: (du_soir[cibles[i]["id"]],
                                     len(parts[cibles[i]["id"]]),
@@ -1516,11 +1538,11 @@ def reaffecter(du, vers_qui, de_qui=(), jours=(), au="", appliquer=False,
             continue
         retenues.append(item)
 
+    charge = _charge_hors_lot(retenues, debut, fin)
     if mode == "tour":
-        parts, orphelines = _distribuer_tour(retenues, cibles)
+        parts, orphelines = _distribuer_tour(retenues, cibles, charge)
     else:
-        parts, orphelines = _distribuer(retenues, cibles,
-                                        _charge_hors_lot(retenues, debut, fin))
+        parts, orphelines = _distribuer(retenues, cibles, charge)
 
     if appliquer and retenues:
         quand = db.maintenant()

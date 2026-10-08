@@ -160,6 +160,17 @@ PRIORITES = [
 # jeudi -- sans risquer de confondre deux semaines de suite.
 JOURS_REPLANIFICATION = 3
 
+# Combien de seances une personne peut suivre dans une meme soiree. C'est
+# la regle par defaut, celle qui s'applique sans que personne ait rien a
+# regler ; une fiche peut descendre plus bas (un renfort a trois), jamais
+# monter plus haut par la repartition automatique.
+#
+# Elle ne flechit pas : une seance que plus personne ne peut prendre reste
+# sans responsable et se voit, plutot que d'etre posee sur quelqu'un qui en
+# a deja quatre. Un planning trop charge pour l'equipe est un fait a
+# regarder, pas un fait a cacher.
+MAX_SEANCES_SOIR = 4
+
 # Duree d'une seance quand l'heure de fin n'est pas donnee. Les lives de
 # l'academie durent deux heures ; c'est aussi la fin supposee pour mesurer
 # le retard d'un rapport qui n'est rattache a aucune seance -- les deux
@@ -593,6 +604,7 @@ def constantes():
         "roles": ROLES,
         "mdpMin": MDP_MIN,
         "dureeSeanceMin": DUREE_SEANCE_MIN,
+        "maxSeancesSoir": MAX_SEANCES_SOIR,
         "fuseauMinutes": FUSEAU_MINUTES,
         "fuseauNom": FUSEAU_NOM,
         "poids": POIDS,

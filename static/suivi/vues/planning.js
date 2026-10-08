@@ -35,9 +35,9 @@ export async function vuePlanning (params) {
   // qui dépasse son plafond ce soir-là : le bandeau du jour le nomme
   const debordent = equipe.map(p => ({
     nom: p.nom,
-    max: p.max_soir,
+    max: p.max_soir || CONST.maxSeancesSoir || 4,
     combien: lives.filter(l => l.responsable_id === p.id).length
-  })).filter(p => p.max && p.combien > p.max)
+  })).filter(p => p.combien > p.max)
 
   const navigation = h('div', { class: 'b-groupe' },
     h('button', { class: 'b ico', title: 'Jour précédent', onclick: () => aller('planning', { date: decalerJour(date, -1) }) }, ico('gauche')),
@@ -142,7 +142,9 @@ export async function vuePlanning (params) {
 function colonne ({ personne, lives, date }) {
   // Le plafond de la personne, s'il est posé sur sa fiche : la colonne le
   // dit elle-même, au lieu de laisser compter les cartes.
-  const plafond = personne ? personne.max_soir : null
+  const plafond = personne
+    ? (personne.max_soir || CONST.maxSeancesSoir || 4)
+    : null
   const trop = plafond && lives.length > plafond
   const sousTitre = personne
     ? `${lives.length} séance${lives.length > 1 ? 's' : ''}`
@@ -429,8 +431,10 @@ function reaffecterSeances (date) {
             'warn', ico('alerte', 12))
           : null),
       plan.orphelines.length
-        ? info('Ces séances restent où elles sont : aucune des personnes '
-          + 'cochées n’est disponible à cette heure ou ce jour-là — '
+        ? info('Ces séances restent où elles sont : parmi les personnes '
+          + 'cochées, aucune n’est disponible à cette heure ou ce jour-là, '
+          + `ou toutes ont déjà leurs ${CONST.maxSeancesSoir || 4} séances `
+          + 'du soir — '
           + plan.orphelines.slice(0, 4).map(s =>
             `${courte(s)} ${s.titre}`).join(' · ')
           + (plan.orphelines.length > 4

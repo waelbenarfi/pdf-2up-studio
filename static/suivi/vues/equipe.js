@@ -333,9 +333,9 @@ export function ouvrirPersonne ({ personne = null, apres = null } = {}) {
           aide: 'Laissez vide si toutes les heures conviennent'
         }),
         champTexte(refs, 'max_soir', 'Au plus, par soir', {
-          type: 'number', min: '1', valeur: base.max_soir ?? '',
-          optionnel: true,
-          aide: 'Vide = sa part entière, comme les autres'
+          type: 'number', min: '1', max: String(CONST.maxSeancesSoir || 4),
+          valeur: base.max_soir ?? '', optionnel: true,
+          aide: `Vide = ${CONST.maxSeancesSoir || 4}, la règle pour tout le monde`
         })),
       h('div', { class: 's-champ' },
         h('label', {}, 'Jours possibles ',

@@ -1445,7 +1445,7 @@ def _jour_semaine(iso):
 
 
 def reaffecter(du, vers_qui, de_qui=(), jours=(), au="", appliquer=False,
-               par="", de_prof=(), mode="egal"):
+               par="", de_prof=(), mode="egal", sauf_prof=()):
     """Redonne un paquet de seances a d'autres personnes, a parts egales.
 
     Quand quelqu'un quitte l'equipe -- ou qu'un jour de la semaine doit
@@ -1459,6 +1459,10 @@ def reaffecter(du, vers_qui, de_qui=(), jours=(), au="", appliquer=False,
     de Khaireddine Ihrissane » designe celles qu'il DONNE, pas celles dont
     il repond -- il n'est pas de l'equipe technique. Les deux filtres se
     cumulent quand on les pose tous les deux.
+
+    `sauf_prof` fait l'inverse : il met de cote les seances de tel
+    professeur. C'est ce qu'il faut quand on vient de les fixer a la main
+    et qu'on veut equilibrer tout le reste autour, sans y revenir.
 
     Deux facons de repartir, au choix : `egal` equilibre les soirees et
     les totaux ; `tour` fait tourner les personnes dans l'ordre donne, une
@@ -1491,6 +1495,7 @@ def reaffecter(du, vers_qui, de_qui=(), jours=(), au="", appliquer=False,
     # pouvoir entrer dans la reaffectation comme les autres.
     sources = {_entier(x) or 0 for x in (de_qui or ())}
     profs = {_entier(x) for x in (de_prof or ()) if _entier(x)}
+    hors = {_entier(x) for x in (sauf_prof or ()) if _entier(x)}
     voulus = {_entier(x) for x in (jours or ()) if _entier(x) is not None}
 
     retenues, annulees, faites = [], 0, 0
@@ -1498,6 +1503,8 @@ def reaffecter(du, vers_qui, de_qui=(), jours=(), au="", appliquer=False,
         if sources and (item["responsable_id"] or 0) not in sources:
             continue
         if profs and item["professeur_id"] not in profs:
+            continue
+        if hors and item["professeur_id"] in hors:
             continue
         if voulus and _jour_semaine(item["date"]) not in voulus:
             continue
@@ -1531,6 +1538,7 @@ def reaffecter(du, vers_qui, de_qui=(), jours=(), au="", appliquer=False,
     return {
         "du": debut, "au": fin, "jours": sorted(voulus),
         "professeurs": sorted(profs),
+        "horsProfesseurs": sorted(hors),
         "mode": "tour" if mode == "tour" else "egal",
         "total": len(retenues) - len(orphelines),
         "annulees": annulees, "terminees": faites,

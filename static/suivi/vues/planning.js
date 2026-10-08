@@ -305,6 +305,7 @@ function reaffecterSeances (date) {
   const equipe = etat.personnes.filter(p => p.actif)
   const de = new Set()        // vide = les séances de tout le monde
   const profs = new Set()     // vide = tous les professeurs
+  const horsProfs = new Set() // les professeurs mis de côté
   const jours = new Set()     // vide = tous les jours de la semaine
   // un Set garde l'ordre des clics : c'est lui qui donne l'ordre du tour
   const vers = new Set()
@@ -315,6 +316,10 @@ function reaffecterSeances (date) {
   const apercu = h('div')
   const listeDe = h('div', { class: 's-choix-equipe' })
   const listeProfs = h('div', {
+    class: 's-choix-equipe',
+    style: { maxHeight: '132px', overflowY: 'auto' }
+  })
+  const listeHorsProfs = h('div', {
     class: 's-choix-equipe',
     style: { maxHeight: '132px', overflowY: 'auto' }
   })
@@ -353,10 +358,14 @@ function reaffecterSeances (date) {
     remplir(listeDe,
       chip('Sans responsable', de.has(0), () => basculer(de, 0)),
       ...equipe.map(p => chip(p.nom, de.has(p.id), () => basculer(de, p.id), p)))
-    remplir(listeProfs, ...(etat.professeurs || [])
+    const avecSeances = (etat.professeurs || [])
       .filter(p => p.actif && p.seances)
+    remplir(listeProfs, ...avecSeances
       .map(p => chip(`${p.nom} · ${p.seances}`, profs.has(p.id),
         () => basculer(profs, p.id))))
+    remplir(listeHorsProfs, ...avecSeances
+      .map(p => chip(`${p.nom} · ${p.seances}`, horsProfs.has(p.id),
+        () => basculer(horsProfs, p.id))))
     remplir(listeJours, ...CONST.jours.map((nom, i) =>
       chip(nom, jours.has(i), () => basculer(jours, i))))
     remplir(listeVers, ...equipe.map(p => {
@@ -371,7 +380,8 @@ function reaffecterSeances (date) {
 
   const demande = (appliquer) => ({
     du: refs.du.value, au: refs.au.value, deQui: [...de], deProf: [...profs],
-    jours: [...jours], versQui: [...vers], mode, appliquer
+    jours: [...jours], versQui: [...vers], mode, appliquer,
+    saufProf: [...horsProfs]
   })
 
   async function montrer () {
@@ -473,6 +483,13 @@ function reaffecterSeances (date) {
           'Séances d’un professeur en particulier ',
           h('span', { class: 'opt' }, '(rien de coché = tous)')),
         listeProfs),
+      // mettre de côté ce qu'on vient de fixer à la main, pour équilibrer
+      // tout le reste autour sans y revenir
+      h('details', { class: 's-champ' },
+        h('summary', { style: { cursor: 'pointer', marginBottom: '7px' } },
+          'Sauf les séances d’un professeur ',
+          h('span', { class: 'opt' }, '(rien de coché = aucune exclusion)')),
+        listeHorsProfs),
       h('div', { class: 's-champ' },
         h('label', {}, 'Seulement les ', h('span', { class: 'opt' },
           '(rien de coché = tous les jours)')),

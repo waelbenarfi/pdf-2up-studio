@@ -368,8 +368,9 @@ export function ouvrirImport () {
  */
 export function montrerPlan (plan, lu, choisis, du, fermerImport) {
   const fusionnees = plan.fusionnees || []
+  const replanifiees = plan.replanifiees || []
   const rien = !plan.creees.length && !plan.deplacees.length &&
-    !plan.retirees.length && !fusionnees.length
+    !plan.retirees.length && !fusionnees.length && !replanifiees.length
   const liste = (titre, items, ton, rendu) => items.length
     ? h('details', { class: 's-import-ecartees' },
       h('summary', {}, `${items.length} ${titre}`),
@@ -392,6 +393,10 @@ export function montrerPlan (plan, lu, choisis, du, fermerImport) {
         plan.deplacees.length
           ? badge(`${plan.deplacees.length} horaire(s) corrigé(s)`, 'info',
             ico('horloge', 12))
+          : null,
+        replanifiees.length
+          ? badge(`${replanifiees.length} déplacée(s) à un autre jour`, 'info',
+            ico('agenda', 12))
           : null,
         fusionnees.length
           ? badge(`${fusionnees.length} doublon(s) fusionné(s)`, 'info',
@@ -420,6 +425,14 @@ export function montrerPlan (plan, lu, choisis, du, fermerImport) {
       liste('horaire(s) corrigé(s)', plan.deplacees, 'info', (s) =>
         h('p', {}, h('b', {}, `${s.date} · `), s.titre,
           ` — ${s.heure} → ${s.vers}`)),
+      replanifiees.length
+        ? info('Ces séances changent de jour. Elles sont déplacées, pas '
+          + 'refaites : leurs étapes cochées, leurs commentaires et leur '
+          + 'responsable suivent la séance.')
+        : null,
+      liste('séance(s) déplacée(s) à un autre jour', replanifiees, 'info',
+        (s) => h('p', {}, h('b', {}, `${s.date} ${s.heure} · `), s.titre,
+          ` → ${s.vers}`)),
       fusionnees.length
         ? info('Des séances existent en double — le même intitulé le même '
           + 'jour. Leurs étapes cochées et leurs commentaires rejoignent '

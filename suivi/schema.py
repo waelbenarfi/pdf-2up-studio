@@ -154,6 +154,12 @@ PRIORITES = [
     {"cle": "urgente", "libelle": "Urgente", "ton": "danger"},
 ]
 
+# Au-dela de cet ecart, deux seances de meme intitule ne sont plus la
+# meme seance deplacee mais deux seances differentes. Trois jours couvrent
+# ce qui arrive vraiment -- un dimanche qui passe au samedi, un mardi au
+# jeudi -- sans risquer de confondre deux semaines de suite.
+JOURS_REPLANIFICATION = 3
+
 # Duree d'une seance quand l'heure de fin n'est pas donnee. Les lives de
 # l'academie durent deux heures ; c'est aussi la fin supposee pour mesurer
 # le retard d'un rapport qui n'est rattache a aucune seance -- les deux

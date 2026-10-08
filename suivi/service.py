@@ -1017,6 +1017,10 @@ def reconcilier_lives(lignes, responsables=(), du=None, appliquer=False,
       cas de l'immense majorite, et c'est la que vit le travail deja fait ;
     * meme jour, meme intitule, heure differente : l'heure est corrigee sur
       place -- la seance est la meme, les etapes cochees la suivent ;
+    * meme intitule et meme professeur a quelques jours d'ecart : c'est la
+      meme seance qui change de jour. Elle est deplacee, avec ses etapes,
+      ses commentaires et son responsable. La supprimer pour en recreer une
+      vide aurait efface le travail et l'attribution ;
     * presente au calendrier et absente du planning : elle est creee ;
     * presente au planning et absente du calendrier : elle est retiree si
       personne n'y a touche, et **conservee** sinon. Une seance ou l'on a
@@ -1102,6 +1106,43 @@ def reconcilier_lives(lignes, responsables=(), du=None, appliquer=False,
         else:
             a_creer.append(champs)
 
+    # 2 bis. meme intitule, meme professeur, a quelques jours d'ecart :
+    # la seance a change de jour. On la deplace au lieu de la refaire --
+    # sinon ses etapes cochees, ses commentaires et son responsable restent
+    # sur une seance que le calendrier ne mentionne plus, et la nouvelle
+    # arrive vide.
+    #
+    # Les paires les plus proches d'abord : un dimanche qui glisse au
+    # samedi doit prendre le samedi de SA semaine, pas celui d'apres.
+    paires = []
+    for rang, champs in enumerate(a_creer):
+        for live in reste_base.values():
+            if live["titre"] != champs["titre"]:
+                continue
+            if (live["formateur"] or "") != (champs.get("formateur") or ""):
+                continue
+            # une seance annulee ou deja rapportee a eu lieu (ou n'aura pas
+            # lieu) a sa date : on ne la deplace pas
+            if live["statut"] == "annule" or live["aRapport"]:
+                continue
+            ecart = abs(_ecart_dates(live["date"], champs["date"]))
+            if 0 < ecart <= schema.JOURS_REPLANIFICATION:
+                paires.append((ecart, rang, live["id"]))
+    paires.sort()
+    pris_calendrier, pris_planning, replanifiees = set(), set(), []
+    for _ecart, rang, ident in paires:
+        if rang in pris_calendrier or ident in pris_planning:
+            continue
+        pris_calendrier.add(rang)
+        pris_planning.add(ident)
+        live = reste_base.pop(ident)
+        champs = a_creer[rang]
+        survivants.setdefault((champs["date"], champs["titre"]), []).append(
+            live["id"])
+        replanifiees.append((live, champs))
+    a_creer = [c for rang, c in enumerate(a_creer)
+               if rang not in pris_calendrier]
+
     # 3. ce qui reste au planning n'est plus au calendrier.
     #
     # Trois sorts possibles, et l'ordre compte : une seance qui a un double
@@ -1129,6 +1170,10 @@ def reconcilier_lives(lignes, responsables=(), du=None, appliquer=False,
         "inchangees": inchangees,
         "deplacees": [dict(_resume_live(live), vers=champs["heure"])
                       for live, champs in deplacees],
+        "replanifiees": [dict(_resume_live(live),
+                              vers="%s · %s" % (champs["date"],
+                                                champs["heure"]))
+                         for live, champs in replanifiees],
         "creees": [{"date": c["date"], "heure": c["heure"],
                     "titre": c["titre"], "formateur": c.get("formateur", "")}
                    for c in a_creer],
@@ -1147,6 +1192,12 @@ def reconcilier_lives(lignes, responsables=(), du=None, appliquer=False,
     for live, champs in deplacees:
         db.modifier("lives", live["id"],
                     {"heure": champs["heure"],
+                     "heure_fin": champs["heure_fin"], "maj_le": quand})
+    # la seance entiere suit sa nouvelle date : rien d'autre n'est touche,
+    # donc les etapes, les commentaires et le responsable restent attaches
+    for live, champs in replanifiees:
+        db.modifier("lives", live["id"],
+                    {"date": champs["date"], "heure": champs["heure"],
                      "heure_fin": champs["heure_fin"], "maj_le": quand})
 
     # Les creations d'abord : une doublure peut avoir pour survivante une
@@ -1171,9 +1222,9 @@ def reconcilier_lives(lignes, responsables=(), du=None, appliquer=False,
     journaliser(
         "Planning mis à jour", "%s → %s" % (debut, fin),
         "%d inchangée(s) · %d créée(s) · %d horaire(s) corrigé(s) · "
-        "%d fusionnée(s) · %d retirée(s) · %d conservée(s)"
-        % (inchangees, len(a_creer), len(deplacees), len(a_fusionner),
-           len(a_retirer), len(conservees)), par)
+        "%d déplacée(s) · %d fusionnée(s) · %d retirée(s) · %d conservée(s)"
+        % (inchangees, len(a_creer), len(deplacees), len(replanifiees),
+           len(a_fusionner), len(a_retirer), len(conservees)), par)
     return plan
 
 
@@ -1299,6 +1350,12 @@ def _compter_horaires(seances):
         heure = (item["heure"] or "—")[:5]
         compte[heure] = compte.get(heure, 0) + 1
     return [{"heure": h, "combien": n} for h, n in sorted(compte.items())]
+
+
+def _ecart_dates(a, b):
+    """Le nombre de jours de a vers b, signe."""
+    lire = lambda iso: datetime.date(*(int(x) for x in iso.split("-")))
+    return (lire(b) - lire(a)).days
 
 
 def _jour_semaine(iso):

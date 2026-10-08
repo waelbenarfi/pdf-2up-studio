@@ -304,6 +304,7 @@ CREATE TABLE IF NOT EXISTS personnes (
   couleur      TEXT    NOT NULL DEFAULT '#6f7cff',
   heure_min    TEXT    NOT NULL DEFAULT '',
   jours        TEXT    NOT NULL DEFAULT '',
+  max_soir     INTEGER,
   actif        INTEGER NOT NULL DEFAULT 1,
   cree_le      TEXT    NOT NULL
 );
@@ -510,6 +511,9 @@ COLONNES_AJOUTEES = [
     # posee une fois, elle vaut pour toutes les suivantes.
     ("personnes", "heure_min", "TEXT"),
     ("personnes", "jours", "TEXT"),
+    # Le plafond par soiree. Vide, la personne prend sa part pleine ; c'est
+    # le cas de presque tout le monde, donc rien a recoller pour l'existant.
+    ("personnes", "max_soir", "INTEGER"),
     # Le report fixe d'un professeur : jour d'origine, jour d'arrivee, heure.
     ("professeurs", "report_jour", "TEXT"),
     ("professeurs", "report_vers", "TEXT"),

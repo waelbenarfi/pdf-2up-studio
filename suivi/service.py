@@ -114,6 +114,11 @@ def _disponibilite(valeurs):
         champs["heure_min"] = _heure(valeurs, "heure_min")
     if "jours" in valeurs:
         champs["jours"] = _jours_texte(valeurs.get("jours"))
+    if "max_soir" in valeurs:
+        plafond = _entier(valeurs.get("max_soir"))
+        if plafond is not None and plafond < 1:
+            plafond = None          # « 0 par soir » voudrait dire « jamais »
+        champs["max_soir"] = plafond
     return champs
 
 
@@ -147,6 +152,7 @@ def personnes(actifs_seulement=False):
         # jours, il n'a pas a savoir comment on les range
         ligne["jours"] = _jours_liste(ligne.get("jours"))
         ligne["heure_min"] = ligne.get("heure_min") or ""
+        ligne["max_soir"] = _entier(ligne.get("max_soir"))
     return lignes
 
 
@@ -160,6 +166,7 @@ def creer_personne(valeurs, par=""):
         "couleur": _texte(valeurs, "couleur", schema.COULEURS[0]),
         "heure_min": "",
         "jours": "",
+        "max_soir": None,
         "actif": 1 if valeurs.get("actif", True) else 0,
         "cree_le": db.maintenant(),
     }
@@ -1296,6 +1303,11 @@ def _distribuer(seances, cibles):
     tous les soirs. Le compte etait juste et la repartition injuste.
 
     On tient donc ensemble, dans cet ordre :
+      le plafond  qui a dit « au plus n par soir » n'est servi, tant que
+                  d'autres sont sous le leur, que jusqu'a ce nombre. Un
+                  renfort n'est pas un titulaire. Le plafond flechit
+                  pourtant si tout le monde l'a atteint : mieux vaut une
+                  soiree un peu chargee qu'une seance sans personne ;
       la soiree   celui qui a le moins de seances CE SOIR-LA. C'est le
                   premier critere, et non le total : quelqu'un qui n'est
                   disponible que deux jours par semaine est toujours en
@@ -1333,6 +1345,12 @@ def _distribuer(seances, cibles):
             orphelines.append(item)
             rang += 1
             continue
+        # sous leur plafond d'abord ; s'ils y sont tous, on repart de la
+        # liste entiere plutot que de laisser la seance sans responsable
+        sous_plafond = [i for i in possibles
+                        if cibles[i].get("max_soir") is None
+                        or du_soir[cibles[i]["id"]] < cibles[i]["max_soir"]]
+        possibles = sous_plafond or possibles
         choisi = min(possibles,
                      key=lambda i: (du_soir[cibles[i]["id"]],
                                     len(parts[cibles[i]["id"]]),

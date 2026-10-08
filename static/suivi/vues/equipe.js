@@ -266,6 +266,7 @@ export function ouvrirPersonne ({ personne = null, apres = null } = {}) {
   const modif = !!personne
   const base = personne || {
     nom: '', email: '', telephone: '', actif: 1, heure_min: '', jours: [],
+    max_soir: '',
     // une couleur qui n'est pas déjà prise, pour distinguer les pastilles
     couleur: CONST.couleurs.find(c => !etat.personnes.some(p => p.couleur === c)) ||
       CONST.couleurs[etat.personnes.length % CONST.couleurs.length]
@@ -326,10 +327,16 @@ export function ouvrirPersonne ({ personne = null, apres = null } = {}) {
       h('div', { class: 's-champ' },
         h('label', {}, 'Couleur'),
         h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, ...pastilles)),
-      champTexte(refs, 'heure_min', 'Pas de séance avant', {
-        type: 'time', valeur: base.heure_min || '', optionnel: true,
-        aide: 'Laissez vide si toutes les heures conviennent'
-      }),
+      h('div', { class: 's-lignes d2' },
+        champTexte(refs, 'heure_min', 'Pas de séance avant', {
+          type: 'time', valeur: base.heure_min || '', optionnel: true,
+          aide: 'Laissez vide si toutes les heures conviennent'
+        }),
+        champTexte(refs, 'max_soir', 'Au plus, par soir', {
+          type: 'number', min: '1', valeur: base.max_soir ?? '',
+          optionnel: true,
+          aide: 'Vide = sa part entière, comme les autres'
+        })),
       h('div', { class: 's-champ' },
         h('label', {}, 'Jours possibles ',
           h('span', { class: 'opt' }, '(rien de coché = tous les jours)')),

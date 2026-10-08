@@ -19,6 +19,7 @@ export function libelleDispo (personne) {
   if (jours.length) {
     bouts.push(jours.map(j => (CONST.jours[j] || '').toLowerCase()).join(', '))
   }
+  if (personne.max_soir) bouts.push(`au plus ${personne.max_soir} par soir`)
   return bouts.join(' · ')
 }
 

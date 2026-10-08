@@ -1276,6 +1276,24 @@ def _jour(valeur, champ):
     return _date({champ: valeur}, champ)
 
 
+def _charge_hors_lot(lot, du, au=""):
+    """Ce que chacun tient deja, soir par soir, en dehors du lot a repartir.
+
+    Une reaffectation ne porte souvent que sur une partie de la soiree. Le
+    reste pese pourtant sur la meme personne le meme soir : l'ignorer
+    revenait a donner une cinquieme seance a quelqu'un qui en avait deja
+    quatre.
+    """
+    dedans = {item["id"] for item in lot}
+    charge = {}
+    for item in lives(du=du, au=au or None):
+        if item["id"] in dedans or not item["responsable_id"]:
+            continue
+        cle = (item["date"], item["responsable_id"])
+        charge[cle] = charge.get(cle, 0) + 1
+    return charge
+
+
 def _peut_prendre(personne, seance):
     """Cette personne peut-elle prendre cette seance ?
 
@@ -1294,7 +1312,7 @@ def _peut_prendre(personne, seance):
     return True
 
 
-def _distribuer(seances, cibles):
+def _distribuer(seances, cibles, deja=None):
     """Repartit des seances entre des personnes. Deux equilibres, une regle.
 
     Une simple distribution « une seance sur n » dans l'ordre du calendrier
@@ -1326,6 +1344,12 @@ def _distribuer(seances, cibles):
 
     Une seance que personne de disponible ne peut prendre n'est pas forcee
     sur quelqu'un : elle ressort a part, et reste ou elle est.
+
+    `deja` compte ce que chacun tient DEJA ce soir-la et qui n'est pas dans
+    le lot a repartir : une seance annulee, une seance deja rapportee, ou
+    tout simplement les seances qu'une passe precedente lui a laissees.
+    Sans cela, repartir un sous-ensemble repartait de zero et rajoutait une
+    cinquieme seance a quelqu'un qui en avait deja quatre ce soir-la.
     """
     ordre = sorted(seances, key=lambda l: (l["date"], l["heure"] or "",
                                            l["id"]))
@@ -1338,7 +1362,8 @@ def _distribuer(seances, cibles):
     for item in ordre:
         if item["date"] != jour_courant:
             jour_courant, rang = item["date"], 0
-            du_soir = {p["id"]: 0 for p in cibles}
+            du_soir = {p["id"]: (deja or {}).get((item["date"], p["id"]), 0)
+                       for p in cibles}
         possibles = [i for i, p in enumerate(cibles)
                      if _peut_prendre(p, item)]
         if not possibles:
@@ -1453,7 +1478,8 @@ def reaffecter(du, vers_qui, de_qui=(), jours=(), au="", appliquer=False,
             continue
         retenues.append(item)
 
-    parts, orphelines = _distribuer(retenues, cibles)
+    parts, orphelines = _distribuer(retenues, cibles,
+                                    _charge_hors_lot(retenues, debut, fin))
 
     if appliquer and retenues:
         quand = db.maintenant()
@@ -1504,7 +1530,9 @@ def repartir(date, par=""):
         raise Refus("Ajoutez d'abord au moins un technicien dans l'équipe.")
     jour = [l for l in lives(date=date)
             if l["statut"] != "annule" and not l["aRapport"]]
-    parts, orphelines = _distribuer(jour, equipe)
+    # les seances qui ne bougent pas occupent quand meme leur responsable
+    parts, orphelines = _distribuer(jour, equipe,
+                                    _charge_hors_lot(jour, date, date))
     quand = db.maintenant()
     for personne in equipe:
         for item in parts[personne["id"]]:

@@ -373,6 +373,14 @@ def _garder_responsable(ident, corps):
                      "séance.")
 
 
+@suivi_bp.route("/api/suivi/professeurs/<int:ident>/reporter",
+                methods=["POST"])
+@auth.exiger_admin
+def reporter_seances(ident):
+    """Applique le report fixe de la fiche aux seances deja planifiees."""
+    return ok(service.reporter_seances(ident, _qui()))
+
+
 @suivi_bp.route("/api/suivi/lives", methods=["GET", "POST"])
 def lives():
     if request.method == "POST":

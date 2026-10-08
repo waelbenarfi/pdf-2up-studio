@@ -6,11 +6,12 @@
 // semaines. Le numéro appartient à l'application.
 
 import {
-  api, etat, h, remplir, essayer, rafraichir, aller, toast, chargerProfesseurs
+  CONST, api, etat, h, remplir, essayer, rafraichir, aller, toast,
+  chargerProfesseurs
 } from '../noyau.js'
 import {
-  carte, vide, tableau, modale, confirmer, champTexte, champZone, valeurs,
-  badge, boutonIco, info, actionsLigne
+  carte, vide, tableau, modale, confirmer, champTexte, champZone, champListe,
+  valeurs, badge, boutonIco, info, actionsLigne
 } from '../ui.js'
 import { ico } from '../icones.js'
 
@@ -71,6 +72,9 @@ export async function vueProfesseurs (params) {
         rendu: (prof) => [
           h('div', {},
             h('span', { class: 'principal' }, prof.nom),
+            libelleReport(prof)
+              ? h('div', { class: 'discret' }, libelleReport(prof))
+              : null,
             prof.note ? h('div', { class: 'discret' }, prof.note) : null),
           prof.matiere || '—',
           celluleNiveaux(prof),
@@ -171,7 +175,10 @@ function releve (fiabilite) {
 
 export function ouvrirProfesseur ({ prof = null, apres = null } = {}) {
   const modif = !!prof
-  const base = prof || { nom: '', telephone: '', matiere: '', note: '' }
+  const base = prof || {
+    nom: '', telephone: '', matiere: '', note: '',
+    report_jour: null, report_vers: null, report_heure: ''
+  }
   const refs = {}
 
   const corps = h('div', { style: { display: 'flex', flexDirection: 'column', gap: '14px' } },
@@ -190,6 +197,24 @@ export function ouvrirProfesseur ({ prof = null, apres = null } = {}) {
       valeur: base.note, lignes: 2, optionnel: true,
       exemple: 'Ex. ne répond pas avant 17 h, préfère WhatsApp.'
     }),
+    // Un décalage que l'on refait à chaque import n'est pas une correction,
+    // c'est une corvée — et une corvée s'oublie. Posé ici, il s'applique
+    // tout seul à chaque calendrier importé.
+    h('div', { class: 's-champ' },
+      h('label', {}, 'Séances toujours déplacées ',
+        h('span', { class: 'opt' }, '(optionnel)')),
+      h('div', { class: 's-lignes d3' },
+        champListe(refs, 'report_jour', 'Les séances du',
+          optionsJours('— aucune règle —'),
+          { valeur: base.report_jour ?? '' }),
+        champListe(refs, 'report_vers', 'passent au',
+          optionsJours('—'), { valeur: base.report_vers ?? '' }),
+        champTexte(refs, 'report_heure', 'à', {
+          type: 'time', valeur: base.report_heure || ''
+        })),
+      h('span', { class: 'aide' },
+        'Appliqué à chaque import du calendrier. L’heure est facultative : '
+        + 'vide, la séance garde la sienne.')),
     modif && base.niveaux
       ? info(`Niveaux assurés : ${base.niveaux}. Relevés sur le planning, `
         + 'ils se mettent à jour tout seuls — rien à saisir ici.')
@@ -222,6 +247,7 @@ export function ouvrirProfesseur ({ prof = null, apres = null } = {}) {
             e.target.disabled = false
             if (!fait) return
             fermer()
+            if (fait.aReporter) proposerReport(fait)
             if (apres) apres(fait); else rafraichir()
           }
         }, modif ? 'Enregistrer' : 'Ajouter'))
@@ -340,6 +366,43 @@ export function lireProfs (texte) {
     })
   })
   return { profs, ecartees }
+}
+
+/** « Les séances du dimanche passent au samedi à 19:00 ». */
+export function libelleReport (prof) {
+  if (prof.report_jour === null || prof.report_vers === null) return ''
+  const jours = CONST.jours || []
+  return `séances du ${(jours[prof.report_jour] || '').toLowerCase()}`
+    + ` → ${(jours[prof.report_vers] || '').toLowerCase()}`
+    + (prof.report_heure ? ` à ${prof.report_heure}` : '')
+}
+
+const optionsJours = (vide) => [{ valeur: '', libelle: vide }].concat(
+  (CONST.jours || []).map((nom, i) => ({ valeur: String(i), libelle: nom })))
+
+/**
+ * La règle vient d'être posée, et des séances l'attendent déjà.
+ *
+ * On ne touche pas au planning sans le demander : une règle dit ce qui se
+ * passera aux prochains imports, elle ne réécrit pas d'elle-même ce qui est
+ * déjà en place.
+ */
+function proposerReport (prof) {
+  confirmer({
+    titre: 'Reporter les séances déjà planifiées ?',
+    texte: `${prof.aReporter} séance(s) à venir de ${prof.nom} tombent encore `
+      + `un ${(CONST.jours[prof.report_jour] || '').toLowerCase()}. `
+      + `Les déplacer maintenant — ${libelleReport(prof)} ? Les séances `
+      + 'passées, annulées ou déjà rapportées ne bougeront pas.',
+    bouton: 'Reporter',
+    surOui: async () => {
+      const fait = await essayer(
+        () => api.post(`/professeurs/${prof.id}/reporter`, {}))
+      if (!fait) return
+      toast(`${fait.deplacees} séance(s) reportée(s).`)
+      rafraichir()
+    }
+  })
 }
 
 function supprimer (prof) {

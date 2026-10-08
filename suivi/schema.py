@@ -454,15 +454,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS i_distinctions_mois ON distinctions(mois);
 
 -- Le repertoire des professeurs. La premiere etape de chaque seance est de
 -- les appeler : le numero doit etre dans l'application, pas dans un carnet.
+-- `report_*` : le decalage fixe de ce professeur. « Ses seances du
+-- dimanche sont toujours le samedi a 19 h » est une regle durable, pas une
+-- correction a refaire apres chaque import.
 CREATE TABLE IF NOT EXISTS professeurs (
-  id        INTEGER PRIMARY KEY AUTOINCREMENT,
-  nom       TEXT    NOT NULL,
-  telephone TEXT    NOT NULL DEFAULT '',
-  matiere   TEXT    NOT NULL DEFAULT '',
-  tarif     TEXT    NOT NULL DEFAULT '',
-  note      TEXT    NOT NULL DEFAULT '',
-  actif     INTEGER NOT NULL DEFAULT 1,
-  cree_le   TEXT    NOT NULL
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  nom          TEXT    NOT NULL,
+  telephone    TEXT    NOT NULL DEFAULT '',
+  matiere      TEXT    NOT NULL DEFAULT '',
+  tarif        TEXT    NOT NULL DEFAULT '',
+  note         TEXT    NOT NULL DEFAULT '',
+  report_jour  TEXT    NOT NULL DEFAULT '',
+  report_vers  TEXT    NOT NULL DEFAULT '',
+  report_heure TEXT    NOT NULL DEFAULT '',
+  actif        INTEGER NOT NULL DEFAULT 1,
+  cree_le      TEXT    NOT NULL
 );
 CREATE INDEX IF NOT EXISTS i_professeurs_nom ON professeurs(nom);
 """
@@ -498,6 +504,10 @@ COLONNES_AJOUTEES = [
     # posee une fois, elle vaut pour toutes les suivantes.
     ("personnes", "heure_min", "TEXT"),
     ("personnes", "jours", "TEXT"),
+    # Le report fixe d'un professeur : jour d'origine, jour d'arrivee, heure.
+    ("professeurs", "report_jour", "TEXT"),
+    ("professeurs", "report_vers", "TEXT"),
+    ("professeurs", "report_heure", "TEXT"),
 ]
 
 # Rattachement des lignes deja ecrites : le nom est ce qu'on a.
@@ -517,6 +527,9 @@ RECOLLAGES = [
     ("UPDATE professeurs SET tarif = '' WHERE tarif IS NULL"),
     ("UPDATE personnes SET heure_min = '' WHERE heure_min IS NULL"),
     ("UPDATE personnes SET jours = '' WHERE jours IS NULL"),
+    ("UPDATE professeurs SET report_jour = '' WHERE report_jour IS NULL"),
+    ("UPDATE professeurs SET report_vers = '' WHERE report_vers IS NULL"),
+    ("UPDATE professeurs SET report_heure = '' WHERE report_heure IS NULL"),
 ]
 
 # Un commentaire est libre mais pas sans fin : au-dela, c'est un rapport.

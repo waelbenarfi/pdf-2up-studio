@@ -372,7 +372,7 @@ def fiabilite_professeurs(jours=90):
 
 def _valeurs_professeur(valeurs, base=None):
     base = base or {}
-    return {
+    champs = {
         "nom": _texte(valeurs, "nom", base.get("nom", ""), obligatoire=True,
                       etiquette="Nom du professeur"),
         "telephone": _texte(valeurs, "telephone", base.get("telephone", "")),
@@ -380,6 +380,157 @@ def _valeurs_professeur(valeurs, base=None):
         "note": _texte(valeurs, "note", base.get("note", "")),
         "actif": 1 if valeurs.get("actif", base.get("actif", 1)) else 0,
     }
+    champs.update(_valeurs_report(valeurs, base))
+    return champs
+
+
+def _valeurs_report(valeurs, base=None):
+    """Le report fixe, quand la demande en parle.
+
+    Les trois champs vont ensemble : sans jour d'origine ni jour d'arrivee,
+    il n'y a pas de regle, et l'heure seule ne veut rien dire. On les ecrit
+    donc ou on les efface d'un bloc.
+    """
+    base = base or {}
+    if not any(c in valeurs for c in ("report_jour", "report_vers",
+                                      "report_heure")):
+        return {}
+    depart = _jour_num(valeurs.get("report_jour", base.get("report_jour")))
+    arrivee = _jour_num(valeurs.get("report_vers", base.get("report_vers")))
+    if depart is None or arrivee is None:
+        return {"report_jour": "", "report_vers": "", "report_heure": ""}
+    if depart == arrivee:
+        raise Refus("Le jour d'arrivée est le même que celui de départ.")
+    return {"report_jour": str(depart), "report_vers": str(arrivee),
+            "report_heure": _heure({"h": valeurs.get(
+                "report_heure", base.get("report_heure", ""))}, "h")}
+
+
+def _jour_num(valeur):
+    """0 pour lundi, 6 pour dimanche. Vide, None ou hors bornes : rien."""
+    texte = str(valeur if valeur is not None else "").strip()
+    return int(texte) if texte.isdigit() and 0 <= int(texte) <= 6 else None
+
+
+def _ecart_jours(depart, arrivee):
+    """Le plus court chemin d'un jour de semaine a l'autre, signe.
+
+    Dimanche vers samedi, c'est la veille (-1), pas six jours plus tard :
+    une seance reportee doit rester dans la meme semaine de cours.
+    """
+    ecart = (arrivee - depart) % 7
+    return ecart - 7 if ecart > 3 else ecart
+
+
+def _decaler_date(iso, jours):
+    an, mois, jour = (int(x) for x in iso.split("-"))
+    return (datetime.date(an, mois, jour)
+            + datetime.timedelta(days=jours)).isoformat()
+
+
+def _regles_report():
+    """Les reports fixes de tous les professeurs, ramasses d'un coup.
+
+    Une requete par ligne importee ferait cinq cents allers-retours pour un
+    calendrier d'un mois.
+    """
+    regles = {}
+    for ligne in db.tous(
+            "SELECT id, COALESCE(report_jour, '') AS report_jour,"
+            " COALESCE(report_vers, '') AS report_vers,"
+            " COALESCE(report_heure, '') AS report_heure FROM professeurs"):
+        depart = _jour_num(ligne["report_jour"])
+        arrivee = _jour_num(ligne["report_vers"])
+        if depart is not None and arrivee is not None:
+            regles[ligne["id"]] = (depart, arrivee, ligne["report_heure"])
+    return regles
+
+
+def _appliquer_report(champs, regles):
+    """Deplace une seance importee si son professeur a une regle.
+
+    L'horaire de fin suit le debut : une seance de deux heures reste une
+    seance de deux heures, meme avancee d'un jour.
+    """
+    regle = regles.get(champs.get("professeur_id"))
+    if not regle or not champs.get("date"):
+        return champs
+    depart, arrivee, heure = regle
+    if _jour_semaine(champs["date"]) != depart:
+        return champs
+    champs = dict(champs)
+    champs["date"] = _decaler_date(champs["date"],
+                                   _ecart_jours(depart, arrivee))
+    if heure:
+        duree = _duree_minutes(champs.get("heure"), champs.get("heure_fin"))
+        champs["heure"] = heure
+        champs["heure_fin"] = _ajouter_minutes(heure, duree)
+    return champs
+
+
+def _duree_minutes(debut, fin):
+    depart = _horodate("2000-01-01", debut or "")
+    arrivee = _horodate("2000-01-01", fin or "")
+    if not depart or not arrivee or arrivee <= depart:
+        return schema.DUREE_SEANCE_MIN
+    return int((arrivee - depart).total_seconds() // 60)
+
+
+def _ajouter_minutes(heure, minutes):
+    depart = _horodate("2000-01-01", heure)
+    if not depart:
+        return ""
+    return (depart + datetime.timedelta(minutes=minutes)).strftime("%H:%M")
+
+
+def reporter_seances(ident, par=""):
+    """Applique le report fixe d'un professeur aux seances deja planifiees.
+
+    Seulement celles a venir : le passe a eu lieu au jour ou il a eu lieu.
+    Ni les annulees, ni celles qui ont deja leur rapport.
+    """
+    fiche = db.un("SELECT * FROM professeurs WHERE id = ?", (ident,))
+    if not fiche:
+        raise Refus("Professeur introuvable.")
+    regles = _regles_report()
+    if ident not in regles:
+        raise Refus("Aucun report n'est réglé sur cette fiche.")
+    depart, arrivee, heure = regles[ident]
+
+    bougees, quand = [], db.maintenant()
+    for item in lives(du=db.aujourdhui(), responsable=None):
+        if item["professeur_id"] != ident:
+            continue
+        if item["statut"] == "annule" or item["aRapport"]:
+            continue
+        if _jour_semaine(item["date"]) != depart:
+            continue
+        champs = _appliquer_report(
+            {"professeur_id": ident, "date": item["date"],
+             "heure": item["heure"], "heure_fin": item["heure_fin"]}, regles)
+        champs["maj_le"] = quand
+        champs.pop("professeur_id")
+        db.modifier("lives", item["id"], champs)
+        bougees.append("%s → %s %s · %s" % (item["date"], champs["date"],
+                                            champs["heure"], item["titre"]))
+    if bougees:
+        journaliser("Séances reportées", fiche["nom"],
+                    "%d séance(s) · %s → %s" % (len(bougees),
+                                                schema.JOURS[depart],
+                                                schema.JOURS[arrivee]), par)
+    return {"deplacees": len(bougees), "details": bougees}
+
+
+def _a_reporter(ident):
+    """Combien de seances a venir attendent encore le report de la fiche."""
+    regles = _regles_report()
+    if ident not in regles:
+        return 0
+    depart = regles[ident][0]
+    return len([l for l in lives(du=db.aujourdhui())
+                if l["professeur_id"] == ident and l["statut"] != "annule"
+                and not l["aRapport"]
+                and _jour_semaine(l["date"]) == depart])
 
 
 def _fiche_professeur(ligne, niveaux=None):
@@ -400,6 +551,9 @@ def _fiche_professeur(ligne, niveaux=None):
         return None
     sortie = dict(ligne)
     sortie.pop("tarif", None)
+    sortie["report_jour"] = _jour_num(ligne.get("report_jour"))
+    sortie["report_vers"] = _jour_num(ligne.get("report_vers"))
+    sortie["report_heure"] = ligne.get("report_heure") or ""
     ranges = ordonner_niveaux(niveaux or ())
     sortie["niveaux"] = " · ".join(ranges)
     sortie["niveauxListe"] = ranges
@@ -420,9 +574,11 @@ def creer_professeur(valeurs, par=""):
                 " WHERE professeur_id IS NULL AND formateur = ?",
                 (ident, champs["nom"]))
     journaliser("Professeur ajouté", champs["nom"], champs["telephone"], par)
-    return _fiche_professeur(
+    fiche = _fiche_professeur(
         db.un("SELECT * FROM professeurs WHERE id = ?", (ident,)),
         _niveaux_par_professeur(ident).get(ident))
+    fiche["aReporter"] = _a_reporter(ident)
+    return fiche
 
 
 def importer_professeurs(lignes, par=""):
@@ -486,9 +642,13 @@ def modifier_professeur(ident, valeurs, par=""):
         db.executer("UPDATE lives SET formateur = ? WHERE professeur_id = ?",
                     (champs["nom"], ident))
     journaliser("Professeur modifié", champs["nom"], "", par)
-    return _fiche_professeur(
+    fiche = _fiche_professeur(
         db.un("SELECT * FROM professeurs WHERE id = ?", (ident,)),
         _niveaux_par_professeur(ident).get(ident))
+    # ce qui reste a corriger dans le planning deja pose : l'ecran proposera
+    # de le faire, la regle seule ne touche pas au passe
+    fiche["aReporter"] = _a_reporter(ident)
+    return fiche
 
 
 def supprimer_professeur(ident, par=""):
@@ -721,6 +881,8 @@ def importer_lives(lignes, responsables=(), par=""):
             raise Refus("Ligne %d : %s" % (rang, souci))
         preparees.append(champs)
 
+    regles = _regles_report()
+    preparees = [_appliquer_report(c, regles) for c in preparees]
     preparees.sort(key=lambda c: (c["date"], c["heure"] or "99:99"))
 
     crees, ignorees = [], []
@@ -855,6 +1017,8 @@ def reconcilier_lives(lignes, responsables=(), du=None, appliquer=False,
             preparees.append(_valeurs_live(brute or {}))
         except Refus as souci:
             raise Refus("Ligne %d : %s" % (rang, souci))
+    regles = _regles_report()
+    preparees = [_appliquer_report(c, regles) for c in preparees]
     preparees.sort(key=lambda c: (c["date"], c["heure"] or "99:99"))
 
     debut = _jour(du, "du") if du else preparees[0]["date"]

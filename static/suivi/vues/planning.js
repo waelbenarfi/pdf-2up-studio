@@ -32,6 +32,13 @@ export async function vuePlanning (params) {
   // rôle unique : chaque technicien actif peut recevoir des séances
   const equipe = etat.personnes.filter(p => p.actif)
 
+  // qui dépasse son plafond ce soir-là : le bandeau du jour le nomme
+  const debordent = equipe.map(p => ({
+    nom: p.nom,
+    max: p.max_soir,
+    combien: lives.filter(l => l.responsable_id === p.id).length
+  })).filter(p => p.max && p.combien > p.max)
+
   const navigation = h('div', { class: 'b-groupe' },
     h('button', { class: 'b ico', title: 'Jour précédent', onclick: () => aller('planning', { date: decalerJour(date, -1) }) }, ico('gauche')),
     h('input', {
@@ -69,9 +76,12 @@ export async function vuePlanning (params) {
     titre: `Planification · ${dateLongue(date)}`,
     sous: `${lives.length} live${lives.length > 1 ? 's' : ''} · `
       + `${nonAttribues.length} sans responsable · `
-      + (etat.admin
-        ? 'glissez une carte d’une colonne à l’autre'
-        : 'l’attribution est réservée à l’administrateur'),
+      + (debordent.length
+        ? `${debordent.length} au-dessus de leur plafond : `
+          + debordent.map(p => `${p.nom} ${p.combien}`).join(', ')
+        : etat.admin
+          ? 'glissez une carte d’une colonne à l’autre'
+          : 'l’attribution est réservée à l’administrateur'),
     actions: [
       navigation,
       etat.admin
@@ -130,8 +140,14 @@ export async function vuePlanning (params) {
 
 /* ------------------------------------------------------------- colonnes */
 function colonne ({ personne, lives, date }) {
+  // Le plafond de la personne, s'il est posé sur sa fiche : la colonne le
+  // dit elle-même, au lieu de laisser compter les cartes.
+  const plafond = personne ? personne.max_soir : null
+  const trop = plafond && lives.length > plafond
   const sousTitre = personne
     ? `${lives.length} séance${lives.length > 1 ? 's' : ''}`
+      + (plafond ? ` · au plus ${plafond}` : '')
+      + (libelleDispo(personne) && !plafond ? ` · ${libelleDispo(personne)}` : '')
     : (etat.admin ? 'glissez une carte ici' : 'en attente d’attribution')
   const corps = h('div', { class: 's-colonne-corps' },
     ...lives.map(live => jeton(live)),
@@ -146,7 +162,8 @@ function colonne ({ personne, lives, date }) {
       h('div', { style: { flex: '1', minWidth: '0' } },
         h('b', {}, personne ? personne.nom : 'À attribuer'),
         h('small', {}, sousTitre)),
-      badge(String(lives.length), lives.length ? 'accent' : 'muted')),
+      badge(String(lives.length), trop ? 'danger'
+        : lives.length ? 'accent' : 'muted', trop ? ico('alerte', 11) : null)),
     corps)
 
   // seul l'administrateur attribue : pour les autres, la colonne ne

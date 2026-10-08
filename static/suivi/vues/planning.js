@@ -304,6 +304,7 @@ const courte = (seance) => seance
 function reaffecterSeances (date) {
   const equipe = etat.personnes.filter(p => p.actif)
   const de = new Set()        // vide = les séances de tout le monde
+  const profs = new Set()     // vide = tous les professeurs
   const jours = new Set()     // vide = tous les jours de la semaine
   const vers = new Set()
   const refs = {}
@@ -311,6 +312,10 @@ function reaffecterSeances (date) {
 
   const apercu = h('div')
   const listeDe = h('div', { class: 's-choix-equipe' })
+  const listeProfs = h('div', {
+    class: 's-choix-equipe',
+    style: { maxHeight: '132px', overflowY: 'auto' }
+  })
   const listeJours = h('div', { class: 's-choix-equipe' })
   const listeVers = h('div', { class: 's-choix-equipe' })
   const bouton = h('button', { class: 'b primaire', disabled: true },
@@ -336,6 +341,10 @@ function reaffecterSeances (date) {
     remplir(listeDe,
       chip('Sans responsable', de.has(0), () => basculer(de, 0)),
       ...equipe.map(p => chip(p.nom, de.has(p.id), () => basculer(de, p.id), p)))
+    remplir(listeProfs, ...(etat.professeurs || [])
+      .filter(p => p.actif && p.seances)
+      .map(p => chip(`${p.nom} · ${p.seances}`, profs.has(p.id),
+        () => basculer(profs, p.id))))
     remplir(listeJours, ...CONST.jours.map((nom, i) =>
       chip(nom, jours.has(i), () => basculer(jours, i))))
     remplir(listeVers, ...equipe.map(p =>
@@ -343,8 +352,8 @@ function reaffecterSeances (date) {
   }
 
   const demande = (appliquer) => ({
-    du: refs.du.value, au: refs.au.value,
-    deQui: [...de], jours: [...jours], versQui: [...vers], appliquer
+    du: refs.du.value, au: refs.au.value, deQui: [...de], deProf: [...profs],
+    jours: [...jours], versQui: [...vers], appliquer
   })
 
   async function montrer () {
@@ -438,6 +447,14 @@ function reaffecterSeances (date) {
         h('label', {}, 'Séances de ', h('span', { class: 'opt' },
           '(rien de coché = tout le monde)')),
         listeDe),
+      // « les séances de tel professeur » n'est pas « les séances de tel
+      // responsable » : un professeur donne la séance, un technicien en
+      // répond. Les deux filtres existent, et se cumulent.
+      h('details', { class: 's-champ' },
+        h('summary', { style: { cursor: 'pointer', marginBottom: '7px' } },
+          'Séances d’un professeur en particulier ',
+          h('span', { class: 'opt' }, '(rien de coché = tous)')),
+        listeProfs),
       h('div', { class: 's-champ' },
         h('label', {}, 'Seulement les ', h('span', { class: 'opt' },
           '(rien de coché = tous les jours)')),

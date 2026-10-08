@@ -1295,12 +1295,18 @@ def _distribuer(seances, cibles):
     de seances que de personnes : le quatrieme herite de la derniere seance
     tous les soirs. Le compte etait juste et la repartition injuste.
 
-    On tient donc ensemble :
-      le nombre   on sert toujours celui qui en a le moins, donc l'ecart
-                  entre deux personnes ne depasse jamais une seance ;
-      l'horaire   a nombre egal, on sert celui qui a le moins souvent pris
-                  ce rang-la dans la journee, puis celui dont les seances
-                  sont en moyenne les plus tot.
+    On tient donc ensemble, dans cet ordre :
+      la soiree   celui qui a le moins de seances CE SOIR-LA. C'est le
+                  premier critere, et non le total : quelqu'un qui n'est
+                  disponible que deux jours par semaine est toujours en
+                  retard au total, et equilibrer sur le total lui faisait
+                  ramasser toute la soiree ou il apparaissait -- huit
+                  seances quand les autres en avaient trois ;
+      le nombre   a egalite dans la soiree, celui qui en a le moins en tout,
+                  pour que les soirs se compensent d'un bout a l'autre ;
+      l'horaire   ensuite seulement, celui qui a le moins souvent pris ce
+                  rang-la dans la journee, puis celui dont les seances sont
+                  en moyenne les plus tot.
 
     Le rang dans la journee, plutot que l'heure elle-meme : « tard » ne veut
     pas dire la meme chose un samedi a 17 h et un mardi a 21 h. Ce qu'on
@@ -1315,10 +1321,12 @@ def _distribuer(seances, cibles):
     rangs = {p["id"]: {} for p in cibles}
     tardif = {p["id"]: 0 for p in cibles}
     orphelines = []
+    du_soir = {}
     jour_courant, rang = "", 0
     for item in ordre:
         if item["date"] != jour_courant:
             jour_courant, rang = item["date"], 0
+            du_soir = {p["id"]: 0 for p in cibles}
         possibles = [i for i, p in enumerate(cibles)
                      if _peut_prendre(p, item)]
         if not possibles:
@@ -1326,11 +1334,13 @@ def _distribuer(seances, cibles):
             rang += 1
             continue
         choisi = min(possibles,
-                     key=lambda i: (len(parts[cibles[i]["id"]]),
+                     key=lambda i: (du_soir[cibles[i]["id"]],
+                                    len(parts[cibles[i]["id"]]),
                                     rangs[cibles[i]["id"]].get(rang, 0),
                                     tardif[cibles[i]["id"]], i))
         ident = cibles[choisi]["id"]
         parts[ident].append(item)
+        du_soir[ident] += 1
         rangs[ident][rang] = rangs[ident].get(rang, 0) + 1
         tardif[ident] += rang
         rang += 1
@@ -1365,14 +1375,20 @@ def _jour_semaine(iso):
 
 
 def reaffecter(du, vers_qui, de_qui=(), jours=(), au="", appliquer=False,
-               par=""):
+               par="", de_prof=()):
     """Redonne un paquet de seances a d'autres personnes, a parts egales.
 
     Quand quelqu'un quitte l'equipe -- ou qu'un jour de la semaine doit
     revenir a deux personnes precises --, reprendre les seances une par une
     au glisser-depose est long et laisse toujours un oubli derriere soi. On
-    decrit plutot ce qu'on veut : les seances de telles personnes, a partir
-    de telle date, tel jour de la semaine, a repartir entre telles autres.
+    decrit plutot ce qu'on veut : les seances de telles personnes ou de
+    tel professeur, a partir de telle date, tel jour de la semaine, a
+    repartir entre telles autres.
+
+    Le filtre « professeur » n'est pas un doublon de l'autre : « les seances
+    de Khaireddine Ihrissane » designe celles qu'il DONNE, pas celles dont
+    il repond -- il n'est pas de l'equipe technique. Les deux filtres se
+    cumulent quand on les pose tous les deux.
 
     Sans `appliquer`, rien n'est touche : on montre d'abord le plan. C'est
     un changement en nombre, et on ne le decouvre pas apres coup.
@@ -1400,11 +1416,14 @@ def reaffecter(du, vers_qui, de_qui=(), jours=(), au="", appliquer=False,
     # 0 vaut « sans responsable » : une seance qui n'est a personne doit
     # pouvoir entrer dans la reaffectation comme les autres.
     sources = {_entier(x) or 0 for x in (de_qui or ())}
+    profs = {_entier(x) for x in (de_prof or ()) if _entier(x)}
     voulus = {_entier(x) for x in (jours or ()) if _entier(x) is not None}
 
     retenues, annulees, faites = [], 0, 0
     for item in lives(du=debut, au=fin or None):
         if sources and (item["responsable_id"] or 0) not in sources:
+            continue
+        if profs and item["professeur_id"] not in profs:
             continue
         if voulus and _jour_semaine(item["date"]) not in voulus:
             continue
@@ -1433,6 +1452,7 @@ def reaffecter(du, vers_qui, de_qui=(), jours=(), au="", appliquer=False,
 
     return {
         "du": debut, "au": fin, "jours": sorted(voulus),
+        "professeurs": sorted(profs),
         "total": len(retenues) - len(orphelines),
         "annulees": annulees, "terminees": faites,
         # celles que la disponibilite de chacun interdit : elles restent ou

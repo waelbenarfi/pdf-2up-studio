@@ -445,7 +445,8 @@ def reaffecter():
     return ok(service.reaffecter(
         corps.get("du"), corps.get("versQui"), corps.get("deQui") or (),
         corps.get("jours") or (), corps.get("au") or "",
-        bool(corps.get("appliquer")), _qui()))
+        bool(corps.get("appliquer")), _qui(),
+        corps.get("deProf") or ()))
 
 
 @suivi_bp.route("/api/suivi/lives/deplacer", methods=["POST"])

@@ -322,8 +322,14 @@ def professeurs(actifs_seulement=False):
     if actifs_seulement:
         sql += " WHERE pr.actif = 1"
     niveaux = _niveaux_par_professeur()
-    return [_fiche_professeur(ligne, niveaux.get(ligne["id"])) for ligne in
-            db.tous(sql + " GROUP BY pr.id ORDER BY pr.actif DESC, pr.nom")]
+    attente = _a_reporter_tous()
+    fiches = []
+    for ligne in db.tous(sql + " GROUP BY pr.id"
+                               " ORDER BY pr.actif DESC, pr.nom"):
+        fiche = _fiche_professeur(ligne, niveaux.get(ligne["id"]))
+        fiche["aReporter"] = attente.get(ligne["id"], 0)
+        fiches.append(fiche)
+    return fiches
 
 
 def fiabilite_professeurs(jours=90):
@@ -397,8 +403,14 @@ def _valeurs_report(valeurs, base=None):
         return {}
     depart = _jour_num(valeurs.get("report_jour", base.get("report_jour")))
     arrivee = _jour_num(valeurs.get("report_vers", base.get("report_vers")))
-    if depart is None or arrivee is None:
+    if depart is None and arrivee is None:
         return {"report_jour": "", "report_vers": "", "report_heure": ""}
+    # A moitie remplie, la regle etait effacee sans un mot : on croyait
+    # l'avoir posee, et rien ne se passait aux imports suivants. Mieux vaut
+    # un refus clair qu'un enregistrement qui ne tient pas.
+    if depart is None or arrivee is None:
+        raise Refus("Pour déplacer des séances, indiquez le jour de départ "
+                    "ET le jour d'arrivée.")
     if depart == arrivee:
         raise Refus("Le jour d'arrivée est le même que celui de départ.")
     return {"report_jour": str(depart), "report_vers": str(arrivee),
@@ -521,16 +533,31 @@ def reporter_seances(ident, par=""):
     return {"deplacees": len(bougees), "details": bougees}
 
 
+def _a_reporter_tous():
+    """Par professeur, combien de seances a venir attendent son report.
+
+    Compte pour tout le monde d'un coup : la liste des professeurs affiche
+    ce chiffre sur chaque ligne, et soixante requetes pour un ecran, c'est
+    soixante fois trop.
+    """
+    regles = _regles_report()
+    if not regles:
+        return {}
+    comptes = {}
+    for item in lives(du=db.aujourdhui()):
+        regle = regles.get(item["professeur_id"])
+        if not regle or item["statut"] == "annule" or item["aRapport"]:
+            continue
+        if _jour_semaine(item["date"]) != regle[0]:
+            continue
+        comptes[item["professeur_id"]] = comptes.get(
+            item["professeur_id"], 0) + 1
+    return comptes
+
+
 def _a_reporter(ident):
     """Combien de seances a venir attendent encore le report de la fiche."""
-    regles = _regles_report()
-    if ident not in regles:
-        return 0
-    depart = regles[ident][0]
-    return len([l for l in lives(du=db.aujourdhui())
-                if l["professeur_id"] == ident and l["statut"] != "annule"
-                and not l["aRapport"]
-                and _jour_semaine(l["date"]) == depart])
+    return _a_reporter_tous().get(ident, 0)
 
 
 def _fiche_professeur(ligne, niveaux=None):

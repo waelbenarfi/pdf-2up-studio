@@ -75,6 +75,18 @@ export async function vueProfesseurs (params) {
             libelleReport(prof)
               ? h('div', { class: 'discret' }, libelleReport(prof))
               : null,
+            // Un rappel qui reste : la fenêtre qui suivait l'enregistrement
+            // ne passait qu'une fois, et une fois manquée plus rien ne
+            // disait pourquoi le planning n'avait pas bougé.
+            prof.aReporter
+              ? h('div', { style: { marginTop: '5px' } },
+                h('button', {
+                  class: 's-badge t-warn clic',
+                  onclick: () => proposerReport(prof),
+                  title: 'Déplacer maintenant les séances déjà planifiées'
+                }, ico('agenda', 11),
+                `${prof.aReporter} séance(s) à reporter`))
+              : null,
             prof.note ? h('div', { class: 'discret' }, prof.note) : null),
           prof.matiere || '—',
           celluleNiveaux(prof),

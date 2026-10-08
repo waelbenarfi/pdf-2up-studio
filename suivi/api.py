@@ -446,7 +446,7 @@ def reaffecter():
         corps.get("du"), corps.get("versQui"), corps.get("deQui") or (),
         corps.get("jours") or (), corps.get("au") or "",
         bool(corps.get("appliquer")), _qui(),
-        corps.get("deProf") or ()))
+        corps.get("deProf") or (), corps.get("mode") or "egal"))
 
 
 @suivi_bp.route("/api/suivi/lives/deplacer", methods=["POST"])

@@ -306,8 +306,10 @@ function reaffecterSeances (date) {
   const de = new Set()        // vide = les séances de tout le monde
   const profs = new Set()     // vide = tous les professeurs
   const jours = new Set()     // vide = tous les jours de la semaine
+  // un Set garde l'ordre des clics : c'est lui qui donne l'ordre du tour
   const vers = new Set()
   const refs = {}
+  let mode = 'egal'
   let plan = null
 
   const apercu = h('div')
@@ -337,6 +339,16 @@ function reaffecterSeances (date) {
     montrer()
   }
 
+  const listeMode = h('div', { class: 's-choix-equipe' })
+  const dessinerMode = () => remplir(listeMode,
+    ...[['egal', 'À parts égales'], ['tour', 'À tour de rôle']].map(
+      ([cle, libelle]) => chip(libelle, mode === cle, () => {
+        mode = cle
+        dessinerMode()
+        dessiner()
+        montrer()
+      })))
+
   function dessiner () {
     remplir(listeDe,
       chip('Sans responsable', de.has(0), () => basculer(de, 0)),
@@ -347,13 +359,19 @@ function reaffecterSeances (date) {
         () => basculer(profs, p.id))))
     remplir(listeJours, ...CONST.jours.map((nom, i) =>
       chip(nom, jours.has(i), () => basculer(jours, i))))
-    remplir(listeVers, ...equipe.map(p =>
-      chip(p.nom, vers.has(p.id), () => basculer(vers, p.id), p)))
+    remplir(listeVers, ...equipe.map(p => {
+      // en tour de rôle, le rang de chacun se lit sur sa pastille
+      const rang = [...vers].indexOf(p.id)
+      const libelle = mode === 'tour' && rang >= 0
+        ? `${rang + 1}. ${p.nom}`
+        : p.nom
+      return chip(libelle, vers.has(p.id), () => basculer(vers, p.id), p)
+    }))
   }
 
   const demande = (appliquer) => ({
     du: refs.du.value, au: refs.au.value, deQui: [...de], deProf: [...profs],
-    jours: [...jours], versQui: [...vers], appliquer
+    jours: [...jours], versQui: [...vers], mode, appliquer
   })
 
   async function montrer () {
@@ -460,6 +478,13 @@ function reaffecterSeances (date) {
           '(rien de coché = tous les jours)')),
         listeJours),
       h('div', { class: 's-champ' },
+        h('label', {}, 'Comment'),
+        listeMode,
+        h('span', { class: 'aide' },
+          'À parts égales : les soirées et les totaux s’équilibrent. '
+          + 'À tour de rôle : chacun son tour, dans l’ordre où vous les '
+          + 'cochez ci-dessous.')),
+      h('div', { class: 's-champ' },
         h('label', {}, 'À répartir entre ',
           h('span', { class: 'oblig' }, '*')),
         listeVers),
@@ -481,6 +506,7 @@ function reaffecterSeances (date) {
     }
   })
 
+  dessinerMode()
   dessiner()
   montrer()
   return fermer

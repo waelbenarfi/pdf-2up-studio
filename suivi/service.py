@@ -1312,6 +1312,33 @@ def _peut_prendre(personne, seance):
     return True
 
 
+def _distribuer_tour(seances, cibles):
+    """A tour de role, dans l'ordre donne : A, B, C, D, A, B...
+
+    L'autre regle equilibre les soirees et les totaux, ce qui est ce qu'on
+    veut pour un planning entier. Pour un petit lot -- les dix seances d'un
+    professeur, une par soir -- on prefere souvent voir tourner : c'est
+    previsible, et chacun sait d'avance quand vient son tour.
+
+    La disponibilite reste respectee : si le suivant ne peut pas prendre la
+    seance, on passe au suivant, et c'est lui qui gardera son tour.
+    """
+    ordre = sorted(seances, key=lambda l: (l["date"], l["heure"] or "",
+                                           l["id"]))
+    parts = {p["id"]: [] for p in cibles}
+    orphelines, depart = [], 0
+    for item in ordre:
+        for pas in range(len(cibles)):
+            personne = cibles[(depart + pas) % len(cibles)]
+            if _peut_prendre(personne, item):
+                parts[personne["id"]].append(item)
+                depart = (depart + pas + 1) % len(cibles)
+                break
+        else:
+            orphelines.append(item)
+    return parts, orphelines
+
+
 def _distribuer(seances, cibles, deja=None):
     """Repartit des seances entre des personnes. Deux equilibres, une regle.
 
@@ -1418,7 +1445,7 @@ def _jour_semaine(iso):
 
 
 def reaffecter(du, vers_qui, de_qui=(), jours=(), au="", appliquer=False,
-               par="", de_prof=()):
+               par="", de_prof=(), mode="egal"):
     """Redonne un paquet de seances a d'autres personnes, a parts egales.
 
     Quand quelqu'un quitte l'equipe -- ou qu'un jour de la semaine doit
@@ -1432,6 +1459,10 @@ def reaffecter(du, vers_qui, de_qui=(), jours=(), au="", appliquer=False,
     de Khaireddine Ihrissane » designe celles qu'il DONNE, pas celles dont
     il repond -- il n'est pas de l'equipe technique. Les deux filtres se
     cumulent quand on les pose tous les deux.
+
+    Deux facons de repartir, au choix : `egal` equilibre les soirees et
+    les totaux ; `tour` fait tourner les personnes dans l'ordre donne, une
+    seance chacun a son tour.
 
     Sans `appliquer`, rien n'est touche : on montre d'abord le plan. C'est
     un changement en nombre, et on ne le decouvre pas apres coup.
@@ -1478,8 +1509,11 @@ def reaffecter(du, vers_qui, de_qui=(), jours=(), au="", appliquer=False,
             continue
         retenues.append(item)
 
-    parts, orphelines = _distribuer(retenues, cibles,
-                                    _charge_hors_lot(retenues, debut, fin))
+    if mode == "tour":
+        parts, orphelines = _distribuer_tour(retenues, cibles)
+    else:
+        parts, orphelines = _distribuer(retenues, cibles,
+                                        _charge_hors_lot(retenues, debut, fin))
 
     if appliquer and retenues:
         quand = db.maintenant()
@@ -1497,6 +1531,7 @@ def reaffecter(du, vers_qui, de_qui=(), jours=(), au="", appliquer=False,
     return {
         "du": debut, "au": fin, "jours": sorted(voulus),
         "professeurs": sorted(profs),
+        "mode": "tour" if mode == "tour" else "egal",
         "total": len(retenues) - len(orphelines),
         "annulees": annulees, "terminees": faites,
         # celles que la disponibilite de chacun interdit : elles restent ou

@@ -675,6 +675,13 @@ def modifier_professeur(ident, valeurs, par=""):
     if champs["nom"] != actuel["nom"]:
         db.executer("UPDATE lives SET formateur = ? WHERE professeur_id = ?",
                     (champs["nom"], ident))
+        # et les seances deja saisies sous le nouveau nom, restees sans
+        # fiche, la retrouvent. C'est ce que fait la creation depuis
+        # toujours ; corriger une orthographe doit avoir le meme effet,
+        # sinon le planning garde des seances rattachees a personne.
+        db.executer("UPDATE lives SET professeur_id = ?"
+                    " WHERE professeur_id IS NULL AND formateur = ?",
+                    (ident, champs["nom"]))
     journaliser("Professeur modifié", champs["nom"], "", par)
     fiche = _fiche_professeur(
         db.un("SELECT * FROM professeurs WHERE id = ?", (ident,)),

@@ -450,6 +450,15 @@ def reaffecter():
         corps.get("saufProf") or ()))
 
 
+@suivi_bp.route("/api/suivi/lives/vider", methods=["POST"])
+@auth.exiger_admin
+def vider_periode():
+    """Efface les seances d'une periode. Sans `appliquer`, decrit le plan."""
+    corps = _corps()
+    return ok(service.vider_periode(corps.get("du"), corps.get("au") or "",
+                                    bool(corps.get("appliquer")), _qui()))
+
+
 @suivi_bp.route("/api/suivi/lives/deplacer", methods=["POST"])
 @auth.exiger_admin
 def deplacer():

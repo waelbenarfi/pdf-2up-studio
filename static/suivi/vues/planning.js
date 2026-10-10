@@ -103,6 +103,10 @@ export async function vuePlanning (params) {
           ico('equipe', 15), 'Réaffecter')
         : null,
       etat.admin
+        ? h('button', { class: 'b', onclick: () => viderPeriode(date) },
+          ico('corbeille', 15), 'Vider une période')
+        : null,
+      etat.admin
         ? h('button', { class: 'b', onclick: () => ouvrirImport() },
           ico('recevoir', 15), 'Importer')
         : null,
@@ -299,6 +303,103 @@ function deplacerJournee (date, lives) {
         }, ico('agenda', 15), 'Reporter'))
     ]
   })
+  return fermer
+}
+
+/**
+ * Effacer les séances d'une période, pour repartir propre.
+ *
+ * Entre supprimer une séance à la fois et « Tout remettre à zéro », il
+ * manquait cet entre-deux. On montre d'abord ce qu'on perd : les séances
+ * où quelqu'un a travaillé sont comptées à part, ce sont celles qu'on
+ * regrette.
+ */
+function viderPeriode (date) {
+  const refs = {}
+  const apercu = h('div')
+  let plan = null
+  const bouton = h('button', { class: 'b danger', disabled: true },
+    ico('corbeille', 15), 'Supprimer définitivement')
+
+  async function montrer () {
+    plan = null
+    bouton.disabled = true
+    if (!refs.du.value) {
+      remplir(apercu, info('Choisissez la date de départ.'))
+      return
+    }
+    try {
+      plan = await api.post('/lives/vider', {
+        du: refs.du.value, au: refs.au.value
+      })
+    } catch (souci) {
+      remplir(apercu, info(String(souci.message || souci)))
+      return
+    }
+    bouton.disabled = !plan.total
+    const perdues = plan.avecTravail.length + plan.avecRapport.length
+    remplir(apercu,
+      h('div', { class: 's-import-resume' },
+        badge(`${plan.total} séance(s) à supprimer`,
+          plan.total ? 'danger' : 'muted', ico('corbeille', 12)),
+        plan.intactes
+          ? badge(`${plan.intactes} intacte(s)`, 'muted')
+          : null,
+        plan.avecTravail.length
+          ? badge(`${plan.avecTravail.length} avec des étapes cochées`,
+            'warn', ico('alerte', 12))
+          : null,
+        plan.avecRapport.length
+          ? badge(`${plan.avecRapport.length} avec un rapport envoyé`,
+            'danger', ico('bouclier', 12))
+          : null),
+      plan.total
+        ? info(perdues
+          ? `${perdues} séance(s) portent du travail. Les étapes cochées et `
+            + 'les commentaires partiront avec elles ; les rapports déjà '
+            + 'envoyés restent à l’archive, simplement détachés.'
+          : 'Aucune de ces séances ne porte de travail : rien ne sera perdu '
+            + 'd’autre que le planning lui-même.')
+        : info('Aucune séance sur cette période.'),
+      ...[...plan.avecRapport, ...plan.avecTravail].slice(0, 12).map(
+        (s) => h('p', { class: 's-info' },
+          h('b', {}, `${s.date} ${s.heure} · `), s.titre, ` — ${s.raison}`)))
+  }
+
+  const { fermer } = modale({
+    titre: 'Vider une période',
+    sous: 'Les séances de la période sont supprimées. L’équipe, les '
+      + 'professeurs et les rapports ne sont pas touchés.',
+    largeur: 'large',
+    corps: h('div', { style: { display: 'flex', flexDirection: 'column', gap: '14px' } },
+      h('div', { class: 's-lignes d2' },
+        champTexte(refs, 'du', 'À partir du', {
+          type: 'date', valeur: date, obligatoire: true, onsaisie: montrer
+        }),
+        champTexte(refs, 'au', 'Jusqu’au', {
+          type: 'date', valeur: '', optionnel: true, onsaisie: montrer,
+          aide: 'Vide = jusqu’à la dernière séance planifiée'
+        })),
+      apercu),
+    actions: (ferme) => {
+      bouton.addEventListener('click', async () => {
+        if (!plan || !plan.total) return
+        bouton.disabled = true
+        const fait = await essayer(
+          () => api.post('/lives/vider', {
+            du: refs.du.value, au: refs.au.value, appliquer: true
+          }), `${plan.total} séance(s) supprimée(s).`)
+        bouton.disabled = false
+        if (!fait) return
+        ferme()
+        rafraichir()
+      })
+      return [h('div', { class: 'droite' },
+        h('button', { class: 'b', onclick: ferme }, 'Annuler'), bouton)]
+    }
+  })
+
+  montrer()
   return fermer
 }
 

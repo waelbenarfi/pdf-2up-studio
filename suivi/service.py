@@ -1259,6 +1259,56 @@ def reconcilier_lives(lignes, responsables=(), du=None, appliquer=False,
     return plan
 
 
+def vider_periode(du, au="", appliquer=False, par=""):
+    """Efface les seances d'une periode, apres avoir dit ce qu'on perd.
+
+    Entre supprimer une seance a la fois et tout remettre a zero, il
+    manquait cet entre-deux : repartir d'un planning propre sur quelques
+    semaines, sans toucher a l'equipe, aux professeurs ni au passe.
+
+    Rien n'est efface sans `appliquer`. Le plan compte separement les
+    seances ou quelqu'un a travaille -- etapes cochees, commentaires,
+    rapport envoye -- parce que ce sont elles qu'on regrette.
+
+    Un rapport deja envoye n'est pas supprime avec sa seance : il reste a
+    l'archive, simplement detache. Les etapes et les commentaires, eux,
+    partent avec elle.
+    """
+    debut = _jour(du, "du")
+    fin = _jour(au, "au") if au else ""
+    if fin and fin < debut:
+        raise Refus("La date de fin est avant la date de début.")
+
+    seances = lives(du=debut, au=fin or None)
+    avec_travail, avec_rapport, intactes = [], [], 0
+    for item in seances:
+        trace = _travail_fait(item["id"])
+        if trace["aRapport"]:
+            avec_rapport.append(_resume_live(item, "rapport envoyé"))
+        elif not trace["intacte"]:
+            avec_travail.append(_resume_live(
+                item, "%d étape(s) et %d commentaire(s)"
+                % (trace["etapes"], trace["commentaires"])))
+        else:
+            intactes += 1
+
+    plan = {
+        "du": debut, "au": fin, "total": len(seances), "intactes": intactes,
+        "avecTravail": avec_travail, "avecRapport": avec_rapport,
+        "applique": False,
+    }
+    if not appliquer:
+        return plan
+
+    for item in seances:
+        db.supprimer("lives", item["id"])
+    journaliser("Période vidée", "%s → %s" % (debut, fin or "fin"),
+                "%d séance(s) · %d avec du travail · %d avec un rapport"
+                % (len(seances), len(avec_travail), len(avec_rapport)), par)
+    plan["applique"] = True
+    return plan
+
+
 def deplacer_journee(date, vers, par=""):
     """Reporte toutes les seances d'une journee sur une autre date.
 

@@ -23,6 +23,9 @@ const COLONNES = [
   ['date', ['date', 'jour', 'day']],
   ['titre', ['titre', 'séance', 'seance', 'session', 'cours', 'matière', 'matiere', 'sujet', 'subject', 'class', 'classe', 'libellé', 'libelle', 'nom']],
   ['formateur', ['professeur', 'prof', 'enseignant', 'formateur', 'teacher', 'intervenant']],
+  // le fichier peut porter son attribution : « Responsable » est le nom
+  // d'un membre de l'équipe, pas celui du professeur
+  ['responsable', ['responsable', 'technicien', 'suivi par', 'assigné', 'assigne']],
   ['plateforme', ['plateforme', 'platforme', 'platform', 'salle', 'lien', 'outil']]
 ]
 
@@ -165,7 +168,10 @@ export function lireTableau (texte) {
     colonnes = deduireColonnes(cases[0])
   }
 
-  const seances = []; const ecartees = []
+  const seances = []
+  // les noms de responsables que l'équipe ne connaît pas : on ne devine
+  // pas, on les signale et la séance arrive sans responsable
+  const inconnus = new Set(); const ecartees = []
   for (let i = debut; i < cases.length; i++) {
     const cellule = (champ) => colonnes[champ] === undefined
       ? '' : (cases[i][colonnes[champ]] || '').trim()
@@ -184,10 +190,31 @@ export function lireTableau (texte) {
       heure_fin: lireHeure(cellule('heure_fin')),
       titre,
       formateur: cellule('formateur'),
-      plateforme: cellule('plateforme') || CONST.plateformes[0]
+      plateforme: cellule('plateforme') || CONST.plateformes[0],
+      ...responsableDe(cellule('responsable'), inconnus)
     })
   }
-  return { seances, ecartees, colonnes, entete: aEntete }
+  return { seances, ecartees, colonnes, entete: aEntete,
+           inconnus: [...inconnus] }
+}
+
+/**
+ * Le nom d'un responsable, ramené à quelqu'un de l'équipe.
+ *
+ * Comparé sans accents ni casse : « amin massoudi » et « Amin  Massoudi »
+ * désignent la même personne. Un nom inconnu n'est pas deviné — la séance
+ * arrive sans responsable, et l'écran le dit.
+ */
+function responsableDe (nom, inconnus) {
+  const cherche = sansAccent(String(nom || '')).replace(/\s+/g, ' ').trim()
+  if (!cherche) return {}
+  const trouve = (etat.personnes || []).find(
+    p => sansAccent(p.nom).replace(/\s+/g, ' ').trim() === cherche)
+  if (!trouve) {
+    inconnus.add(String(nom).trim())
+    return {}
+  }
+  return { responsable_id: trouve.id }
 }
 
 /* ------------------------------------------------------------- écran */
@@ -267,6 +294,14 @@ export function ouvrirImport () {
       h('div', { class: 's-import-resume' },
         badge(`${n} séance(s)`, 'ok', ico('video', 12)),
         badge(`${jours.size} jour(s)`, 'accent', ico('agenda', 12)),
+        lu.seances.some(s => s.responsable_id)
+          ? badge(`${lu.seances.filter(s => s.responsable_id).length} avec `
+            + 'un responsable', 'accent', ico('equipe', 12))
+          : null,
+        (lu.inconnus || []).length
+          ? badge(`${lu.inconnus.length} responsable(s) inconnu(s) : `
+            + lu.inconnus.slice(0, 3).join(', '), 'warn', ico('alerte', 12))
+          : null,
         badge(`du ${dateLongue(triees[0].date)} au ${dateLongue(triees[n - 1].date)}`,
           'muted'),
         lu.ecartees.length

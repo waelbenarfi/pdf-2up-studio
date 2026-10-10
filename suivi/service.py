@@ -936,7 +936,9 @@ def importer_lives(lignes, responsables=(), par=""):
             ignorees.append("%s %s · %s" % (champs["date"], champs["heure"],
                                             champs["titre"]))
             continue
-        if equipe:
+        # un responsable donne par le fichier l'emporte sur le tour de
+        # role : il a ete decide, pas tire au sort
+        if equipe and not champs.get("responsable_id"):
             champs["responsable_id"] = equipe[len(crees) % len(equipe)]
         champs["cree_le"] = champs["maj_le"] = quand
         crees.append(db.inserer("lives", champs))
@@ -1217,7 +1219,7 @@ def reconcilier_lives(lignes, responsables=(), du=None, appliquer=False,
     # Les creations d'abord : une doublure peut avoir pour survivante une
     # seance que l'on vient seulement d'ecrire.
     for index, champs in enumerate(a_creer):
-        if equipe:
+        if equipe and not champs.get("responsable_id"):
             champs["responsable_id"] = equipe[index % len(equipe)]
         champs["cree_le"] = champs["maj_le"] = quand
         neuf = db.inserer("lives", champs)

@@ -518,6 +518,10 @@ function resume (fait) {
     corps: h('div', { style: { display: 'flex', flexDirection: 'column', gap: '12px' } },
       h('div', { class: 's-import-resume' },
         badge(`${fait.crees} séance(s) créée(s)`, 'ok', ico('coche', 12)),
+        (fait.reattribuees || []).length
+          ? badge(`${fait.reattribuees.length} attribution(s) corrigée(s)`,
+            'accent', ico('equipe', 12))
+          : null,
         fait.ignorees.length
           ? badge(`${fait.ignorees.length} déjà présente(s)`, 'muted')
           : null),

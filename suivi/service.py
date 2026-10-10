@@ -897,6 +897,10 @@ def importer_lives(lignes, responsables=(), par=""):
       sinon l'ordre du fichier déciderait de qui hérite des soirées chargées ;
     * une séance déjà présente au même jour, à la même heure et sous le même
       titre est ignorée, pour qu'un import relancé ne double pas le planning.
+      Une exception : si le fichier dit qui la suit et que ce n'est pas la
+      personne en place, l'attribution est corrigée. Le fichier porte alors
+      une décision, et la recopier à la main sur deux cents lignes est le
+      meilleur moyen de se tromper.
 
     Rien n'est écrit si une seule ligne est refusée : un import à moitié
     passé est pire qu'un import refusé, on ne sait plus où on en est.
@@ -926,15 +930,25 @@ def importer_lives(lignes, responsables=(), par=""):
     preparees = [_appliquer_report(c, regles) for c in preparees]
     preparees.sort(key=lambda c: (c["date"], c["heure"] or "99:99"))
 
-    crees, ignorees = [], []
+    crees, ignorees, reattribuees = [], [], []
     quand = db.maintenant()
     for index, champs in enumerate(preparees):
         double = db.un(
-            "SELECT id FROM lives WHERE date = ? AND heure = ? AND titre = ?",
+            "SELECT id, responsable_id FROM lives"
+            " WHERE date = ? AND heure = ? AND titre = ?",
             (champs["date"], champs["heure"], champs["titre"]))
         if double:
-            ignorees.append("%s %s · %s" % (champs["date"], champs["heure"],
-                                            champs["titre"]))
+            voulu = champs.get("responsable_id")
+            if voulu and voulu != double["responsable_id"]:
+                db.modifier("lives", double["id"],
+                            {"responsable_id": voulu, "maj_le": quand})
+                reattribuees.append("%s %s · %s" % (champs["date"],
+                                                    champs["heure"],
+                                                    champs["titre"]))
+            else:
+                ignorees.append("%s %s · %s" % (champs["date"],
+                                                champs["heure"],
+                                                champs["titre"]))
             continue
         # un responsable donne par le fichier l'emporte sur le tour de
         # role : il a ete decide, pas tire au sort
@@ -944,8 +958,8 @@ def importer_lives(lignes, responsables=(), par=""):
         crees.append(db.inserer("lives", champs))
 
     journaliser("Import de séances", "%d séance(s)" % len(crees),
-                "%d ignorée(s) · %d responsable(s)" % (len(ignorees), len(equipe)),
-                par)
+                "%d ignorée(s) · %d réattribuée(s) · %d responsable(s)"
+                % (len(ignorees), len(reattribuees), len(equipe)), par)
     # La date de la première séance créée : l'écran de planification montre
     # une journée à la fois et s'ouvre sur aujourd'hui. Après un import qui
     # commence la semaine prochaine, il paraîtrait vide — c'est le meilleur
@@ -954,6 +968,7 @@ def importer_lives(lignes, responsables=(), par=""):
                     if "%s %s · %s" % (c["date"], c["heure"], c["titre"])
                     not in ignorees})
     return {"crees": len(crees), "ignorees": ignorees,
+            "reattribuees": reattribuees,
             "responsables": len(equipe),
             "premiere": dates[0] if dates and crees else "",
             "derniere": dates[-1] if dates and crees else ""}

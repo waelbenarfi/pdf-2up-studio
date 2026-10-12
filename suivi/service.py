@@ -2615,14 +2615,18 @@ def performances(mois=None):
     debut, fin = _bornes_mois(mois)
     maintenant = db.horloge()
 
-    seances = db.tous(
+    toutes = db.tous(
         "SELECT * FROM lives WHERE date >= ? AND date <= ?"
         " AND statut != 'annule' AND responsable_id IS NOT NULL",
         (debut, fin))
     # seules les séances déjà passées se jugent : le reste est à venir
-    seances = [s for s in seances
+    seances = [s for s in toutes
                if (_horodate(s["date"], s["heure_fin"] or s["heure"])
                    or maintenant) < maintenant]
+    # Ce qui reste à faire ce mois-ci. Un score de 100 % au milieu du mois
+    # n'est pas un verdict : c'est « tout est bon jusqu'ici ». L'écran doit
+    # pouvoir le dire, sinon le chiffre promet plus qu'il ne tient.
+    a_venir = len(toutes) - len(seances)
 
     par_live = {s["id"]: s for s in seances}
     etapes = []
@@ -2737,6 +2741,10 @@ def performances(mois=None):
         "classement": brut,
         "distinction": distinction_du_mois(mois),
         "plusCharge": plus_charge,
+        "jugees": len(seances),
+        "aVenir": a_venir,
+        "enCours": mois == db.aujourdhui()[:7],
+        "arreteA": maintenant.isoformat(" "),
     }
 
 

@@ -48,9 +48,17 @@ export async function vuePerformance (params) {
   return [
     carte({
       titre: `Performance · ${moisLisible(mois)}`,
-      sous: etat.admin
+      sous: (etat.admin
         ? 'Classement de l’équipe et désignation de l’employé du mois.'
-        : 'Votre relevé du mois, et ce qui le compose.',
+        : 'Votre relevé du mois, et ce qui le compose.')
+        // Un score au milieu du mois dit « tout est bon jusqu'ici », pas
+        // « le mois est joué ». Sans ce rappel, 100 % se lit comme un
+        // verdict définitif alors qu'il reste des séances à tenir.
+        + (data.enCours
+          ? ` Mois en cours : ${data.jugees} séance(s) déjà passée(s) `
+            + `comptée(s)${data.aVenir ? `, ${data.aVenir} encore à venir`
+              : ''}.`
+          : ''),
       actions: [
         champListe(refs, 'mois', null, derniersMois(), {
           valeur: mois,

@@ -28,6 +28,15 @@ export async function vuePlanning (params) {
     const voisines = await api.get('/lives/voisines', { date })
     prochaine = voisines.suivante || voisines.precedente || ''
     sens = voisines.suivante ? 'suivante' : 'precedente'
+    // À l'ouverture par défaut (aucune date demandée), un jour vide ferait
+    // croire que rien n'a été importé alors que le planning commence plus
+    // tard. On saute donc directement à la première journée qui a des
+    // séances. Si l'utilisateur a choisi une date lui-même, on le laisse où
+    // il est et on se contente du bandeau « Y aller ».
+    if (!params.date && prochaine) {
+      aller('planning', { date: prochaine })
+      return h('div', { class: 's-chargement' }, h('span', { class: 's-tourne' }))
+    }
   }
   // rôle unique : chaque technicien actif peut recevoir des séances
   const equipe = etat.personnes.filter(p => p.actif)

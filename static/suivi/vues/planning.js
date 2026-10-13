@@ -795,7 +795,10 @@ export function supprimerLive (live) {
 }
 
 function sousTitreLive (live) {
-  const texte = [live.formateur, live.plateforme].filter(Boolean).join(' · ')
+  // Le numéro du professeur vient du répertoire, quand la séance y est reliée.
+  // Il est utile sur la carte : appeler le prof sans quitter le planning.
+  const texte = [live.formateur, live.professeur_tel, live.plateforme]
+    .filter(Boolean).join(' · ')
   return texte ? h('small', {}, texte) : null
 }
 

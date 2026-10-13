@@ -252,8 +252,48 @@ LIBRES = {"suivi.page_connexion", "suivi.connexion", "suivi.etat_connexion",
           "suivi.installer"}
 
 
+PAGE_PANNE = """<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Espace technique — base indisponible</title>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;
+background:#eef3f8;font-family:system-ui,sans-serif;color:#16243c}
+.b{max-width:560px;background:#fff;border:1px solid #d9e2ec;border-radius:14px;
+padding:26px 28px;box-shadow:0 10px 30px rgba(23,73,126,.08)}
+h1{font-size:19px;margin:0 0 6px;color:#17497e}
+p{margin:0 0 12px;line-height:1.55;color:#4a5a6e;font-size:14.5px}
+code{display:block;background:#f6f8fb;border:1px solid #e3e9f0;border-radius:8px;
+padding:10px 12px;font-size:12.5px;color:#b13a34;word-break:break-word}
+</style></head><body><div class="b">
+<h1>La base de données ne répond pas</h1>
+<p>Le site est en ligne, mais il ne peut pas lire ses données. Rien n\'est
+perdu : les séances, les rapports et l\'équipe sont dans la base, qui est
+simplement injoignable en ce moment.</p>
+<p>C\'est presque toujours une base mise en veille par l\'hébergeur. La
+relancer depuis son tableau de bord suffit.</p>
+<code>%s</code></div></body></html>"""
+
+
+def _page_panne(cause):
+    return PAGE_PANNE % cause
+
+
 def garde():
-    """Branchee en `before_request` : rien ne passe sans session."""
+    """Branchee en `before_request` : rien ne passe sans session.
+
+    Et rien ne passe non plus si la base n'a pas pu s'ouvrir : inutile de
+    demander un mot de passe a quelqu'un quand il n'y a rien derriere. On
+    repond alors 503 -- « indisponible » -- avec la cause, pour que ce soit
+    reparable sans aller lire des journaux d'hebergeur.
+    """
+    from .api import PANNE
+    if PANNE["base"]:
+        if request.endpoint == "static":
+            return None
+        if request.path.startswith("/api/"):
+            return jsonify({"ok": False, "erreur":
+                            "La base de données ne répond pas. " + PANNE["base"],
+                            "panne": True}), 503
+        return _page_panne(PANNE["base"]), 503
     if request.endpoint in LIBRES or request.endpoint == "static":
         return None
     if utilisateur():

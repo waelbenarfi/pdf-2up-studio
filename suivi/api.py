@@ -41,6 +41,11 @@ DOSSIER_ARCHIVES = os.path.join(DOSSIER_DONNEES, "archives")
 suivi_bp = Blueprint("suivi", __name__)
 
 
+# Ce qui a empeche la base de s'ouvrir au demarrage, s'il y a lieu. Vide,
+# tout va bien. Rempli, chaque page le dit au lieu de planter.
+PANNE = {"base": ""}
+
+
 def preparer(app=None):
     """Prepare la base et, si l'application est fournie, les sessions.
 
@@ -48,11 +53,18 @@ def preparer(app=None):
     demarrage changerait a chaque instance et deconnecterait tout le monde.
     """
     os.makedirs(DOSSIER_DONNEES, exist_ok=True)
-    db.initialiser(CHEMIN_DB)
+    try:
+        db.initialiser(CHEMIN_DB)
+        PANNE["base"] = ""
+    except Exception as souci:
+        # Laisser l'exception sortir d'ici tue l'application avant qu'elle
+        # existe : plus une seule page, pas meme un message. On retient la
+        # cause et on la montre.
+        PANNE["base"] = "%s : %s" % (type(souci).__name__, souci)
     archive.configurer(DOSSIER_ARCHIVES)
     if app is None:
         return
-    app.secret_key = db.secret()
+    app.secret_key = db.secret() if not PANNE["base"] else os.urandom(32)
     app.config.setdefault("SESSION_COOKIE_HTTPONLY", True)
     app.config.setdefault("SESSION_COOKIE_SAMESITE", "Lax")
     app.config.setdefault("PERMANENT_SESSION_LIFETIME",
@@ -60,6 +72,11 @@ def preparer(app=None):
     # en ligne le site est en HTTPS : le cookie n'a rien a faire en clair
     if os.environ.get("VERCEL") or os.environ.get("SUIVI_HTTPS"):
         app.config.setdefault("SESSION_COOKIE_SECURE", True)
+    if PANNE["base"]:
+        # Le reste du demarrage parle a la base : inutile d'insister. Le site
+        # repondra qu'elle est injoignable, et repartira tout seul au premier
+        # demarrage ou elle repond.
+        return
     with app.app_context():
         auth.assurer_admin()
 
